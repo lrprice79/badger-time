@@ -164,6 +164,25 @@ describe("toUnixTimestamp", () => {
     });
 });
 
+// ─── toMillisecondTimestamp ───────────────────────────────────────────────────
+
+describe("toMillisecondTimestamp", () => {
+    it("returns exact milliseconds", () => {
+        const dt = new Badger("2026-01-01T00:00:00.500Z");
+        expect(dt.toMillisecondTimestamp()).toBe(1767225600500);
+    });
+
+    it("before Unix epoch returns negative", () => {
+        const dt = new Badger("1969-12-31T23:59:59.999Z");
+        expect(dt.toMillisecondTimestamp()).toBe(-1);
+    });
+
+    it("toMillisecondTimestamp = toUnixTimestamp * 1000 when no sub-second component", () => {
+        const dt = new Badger("2026-06-15T10:00:00.000Z");
+        expect(dt.toMillisecondTimestamp()).toBe(dt.toUnixTimestamp() * 1000);
+    });
+});
+
 // ─── clone / immutability ─────────────────────────────────────────────────────
 
 describe("clone and immutability", () => {
@@ -516,6 +535,22 @@ describe("isBetween", () => {
         expect(start.isBetween(start, end, { includeEnd: true })).toBe(false));
     it("{ includeEnd: true } — equal to end → true", () =>
         expect(end.isBetween(start, end, { includeEnd: true })).toBe(true));
+
+    it("accepts native Date for start and end", () => {
+        expect(mid.isBetween(new Date("2026-01-01T00:00:00Z"), new Date("2026-12-31T00:00:00Z"))).toBe(true);
+    });
+
+    it("inverted range (start > end) throws RangeError", () => {
+        expect(() => mid.isBetween(end, start)).toThrow(RangeError);
+    });
+
+    it("zero-width range (start === end) with both inclusive — equal date → true", () => {
+        expect(start.isBetween(start, start, { includeStart: true, includeEnd: true })).toBe(true);
+    });
+
+    it("zero-width range (start === end) exclusive — equal date → false", () => {
+        expect(start.isBetween(start, start)).toBe(false);
+    });
 });
 
 // ─── isToday / isYesterday / isTomorrow ──────────────────────────────────────
@@ -640,6 +675,18 @@ describe("diff", () => {
     it("year diff accepts native Date", () => {
         const x = new Badger("2030-01-01T00:00:00Z");
         expect(x.diff(new Date("2026-01-01T00:00:00Z"), "year")).toBe(4);
+    });
+
+    it("month diff is calendar-based — Jan 31 to Feb 1 = 1 month (different calendar months)", () => {
+        const a = new Badger("2026-02-01T00:00:00Z");
+        const b = new Badger("2026-01-31T00:00:00Z");
+        expect(a.diff(b, "month")).toBe(1);
+    });
+
+    it("month diff is calendar-based — Jan 1 to Jan 31 = 0 months (same calendar month)", () => {
+        const a = new Badger("2026-01-31T00:00:00Z");
+        const b = new Badger("2026-01-01T00:00:00Z");
+        expect(a.diff(b, "month")).toBe(0);
     });
 });
 
@@ -930,6 +977,12 @@ describe("clamp", () => {
         const result = after.clamp(new Date("2026-01-01T00:00:00Z"), new Date("2026-12-31T00:00:00Z"));
         expect(result.toISOString()).toBe("2026-12-31T00:00:00.000Z");
     });
+
+    it("inverted range (min > max) throws RangeError", () => {
+        const tooLateMin = new Badger("2026-12-31T00:00:00Z");
+        const tooEarlyMax = new Badger("2026-01-01T00:00:00Z");
+        expect(() => new Badger("2026-06-15T00:00:00Z").clamp(tooLateMin, tooEarlyMax)).toThrow(RangeError);
+    });
 });
 
 // ─── Badger.min / Badger.max ─────────────────────────────────────────────────
@@ -988,6 +1041,46 @@ describe("set", () => {
 
     it("set month is 1-indexed (1 = January)", () => {
         expect(dt.set("month", 1).month).toBe(1);
+    });
+
+    it("set month 0 throws RangeError", () => {
+        expect(() => dt.set("month", 0)).toThrow(RangeError);
+    });
+
+    it("set month 13 throws RangeError", () => {
+        expect(() => dt.set("month", 13)).toThrow(RangeError);
+    });
+
+    it("set day 0 throws RangeError", () => {
+        expect(() => dt.set("day", 0)).toThrow(RangeError);
+    });
+
+    it("set day 32 throws RangeError", () => {
+        expect(() => dt.set("day", 32)).toThrow(RangeError);
+    });
+
+    it("set hour -1 throws RangeError", () => {
+        expect(() => dt.set("hour", -1)).toThrow(RangeError);
+    });
+
+    it("set hour 24 throws RangeError", () => {
+        expect(() => dt.set("hour", 24)).toThrow(RangeError);
+    });
+
+    it("set minute 60 throws RangeError", () => {
+        expect(() => dt.set("minute", 60)).toThrow(RangeError);
+    });
+
+    it("set second 60 throws RangeError", () => {
+        expect(() => dt.set("second", 60)).toThrow(RangeError);
+    });
+
+    it("set millisecond 1000 throws RangeError", () => {
+        expect(() => dt.set("millisecond", 1000)).toThrow(RangeError);
+    });
+
+    it("set millisecond -1 throws RangeError", () => {
+        expect(() => dt.set("millisecond", -1)).toThrow(RangeError);
     });
 });
 

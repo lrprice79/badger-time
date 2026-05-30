@@ -162,15 +162,32 @@ export class BadgerSett extends Intl.DateTimeFormat {
         }).format(this.currentDate);
     }
 
-    /** Returns all 7 weekday names starting from Monday in the configured locale. */
+    /** Returns all 7 weekday names starting from the locale's first day of week. */
     getDaysOfTheWeek(format: Weekday = "long"): string[] {
         const locale = this.resolvedOptions().locale;
         const formatter = new Intl.DateTimeFormat(locale, { weekday: format });
-        // Start from a known Monday (2024-01-01 is a Monday)
+
+        // Determine the locale's first day of week via Intl.Locale weekInfo.
+        // firstDay: 1 = Monday (ISO default), 7 = Sunday (en-US), 6 = Saturday.
+        // Falls back to Monday if weekInfo is unavailable.
+        let firstDayOfWeek = 1;
+        /* v8 ignore next 6 */
+        try {
+            const locObj = new Intl.Locale(locale);
+            const info = (locObj as any).weekInfo ?? (locObj as any).getWeekInfo?.();
+            if (typeof info?.firstDay === "number") firstDayOfWeek = info.firstDay;
+        } catch { /* keep Monday default */ }
+
+        // Map Intl firstDay (1=Mon, 7=Sun) to JS day index (0=Sun, 1=Mon, …)
+        const jsFirstDay = firstDayOfWeek === 7 ? 0 : firstDayOfWeek;
+
+        // 2024-01-01 is a Monday (JS day 1). Offset from Monday to jsFirstDay.
+        const mondayOffset = (jsFirstDay - 1 + 7) % 7;
         const monday = new Date(2024, 0, 1);
+
         return Array.from({ length: 7 }, (_, i) => {
             const day = new Date(monday);
-            day.setDate(monday.getDate() + i);
+            day.setDate(monday.getDate() + mondayOffset + i);
             return formatter.format(day);
         });
     }
@@ -185,7 +202,8 @@ export class BadgerSett extends Intl.DateTimeFormat {
     }
 
     /** Returns a human-readable relative time string (e.g. `"3 hours ago"`, `"in 2 days"`).
-     *  Optionally pass `relativeTo` to anchor the comparison to a specific date instead of now. */
+     *  Optionally pass `relativeTo` to anchor the comparison to a specific date instead of now.
+     *  Month and year thresholds are calendar-based, not approximated. */
     formatRelative(relativeTo?: Date): string {
         const now = relativeTo ?? new Date();
         const diffMs = now.getTime() - this.currentDate.getTime();
@@ -197,8 +215,13 @@ export class BadgerSett extends Intl.DateTimeFormat {
         const hours = Math.floor(minutes / 60);
         const days = Math.floor(hours / 24);
         const weeks = Math.floor(days / 7);
-        const months = Math.floor(days / 30);
-        const years = Math.floor(days / 365);
+
+        const earlier = isFuture ? now : this.currentDate;
+        const later = isFuture ? this.currentDate : now;
+        const calMonths =
+            (later.getFullYear() - earlier.getFullYear()) * 12 +
+            (later.getMonth() - earlier.getMonth());
+        const calYears = Math.floor(calMonths / 12);
 
         let value: number;
         let unit: Intl.RelativeTimeFormatUnit;
@@ -215,14 +238,14 @@ export class BadgerSett extends Intl.DateTimeFormat {
         } else if (days < 7) {
             value = days;
             unit = "day";
-        } else if (weeks < 4) {
+        } else if (calMonths < 1) {
             value = weeks;
             unit = "week";
-        } else if (months < 12) {
-            value = months;
+        } else if (calMonths < 12) {
+            value = calMonths;
             unit = "month";
         } else {
-            value = years;
+            value = calYears;
             unit = "year";
         }
 

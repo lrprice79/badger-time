@@ -136,6 +136,29 @@ describe("DST boundary — Europe/London clocks forward last Sunday of March", (
     });
 });
 
+// ─── DST fall-back ────────────────────────────────────────────────────────────
+
+describe("DST boundary — Europe/London clocks back last Sunday of October", () => {
+    it("start of day on fall-back day — midnight is still BST (UTC+1)", () => {
+        // 2026-10-25 — London clocks go back at 02:00 BST → 01:00 GMT.
+        // Midnight on the 25th is still BST (UTC+1), so start of day = 23:00 UTC Oct 24.
+        const bs = new BadgerSett("2026-10-25T12:00:00Z");
+        expect(bs.formatForBackendToStartOfDay()).toBe("2026-10-24T23:00:00.000Z");
+    });
+
+    it("end of day on fall-back day — 23:59:59 is GMT (UTC+0)", () => {
+        // After clocks fall back the end of the day is in GMT, so 23:59:59 London = 23:59:59 UTC.
+        const bs = new BadgerSett("2026-10-25T12:00:00Z");
+        expect(bs.formatForBackendToEndOfDay()).toBe("2026-10-25T23:59:59.999Z");
+    });
+
+    it("day after fall-back — back to UTC+0 all day", () => {
+        const bs = new BadgerSett("2026-10-26T12:00:00Z");
+        expect(bs.formatForBackendToStartOfDay()).toBe("2026-10-26T00:00:00.000Z");
+        expect(bs.formatForBackendToEndOfDay()).toBe("2026-10-26T23:59:59.999Z");
+    });
+});
+
 // ─── formatDate ───────────────────────────────────────────────────────────────
 
 describe("formatDate", () => {
@@ -260,6 +283,22 @@ describe("getDaysOfTheWeek", () => {
         const bs = new BadgerSett(new Date(), new Intl.Locale("sv-SE"));
         expect(bs.getDaysOfTheWeek()[0]).toBe("måndag");
     });
+
+    it("en-US locale starts with Sunday", () => {
+        const bs = new BadgerSett(new Date(), new Intl.Locale("en-US"));
+        expect(bs.getDaysOfTheWeek()[0]).toBe("Sunday");
+    });
+
+    it("en-US locale ends with Saturday", () => {
+        const bs = new BadgerSett(new Date(), new Intl.Locale("en-US"));
+        expect(bs.getDaysOfTheWeek()[6]).toBe("Saturday");
+    });
+
+    it("narrow format returns single characters", () => {
+        const days = new BadgerSett().getDaysOfTheWeek("narrow");
+        expect(days).toHaveLength(7);
+        expect(days[0]).toBe("M"); // Monday narrow
+    });
 });
 
 // ─── getMonthsOfTheYear ───────────────────────────────────────────────────────
@@ -356,6 +395,32 @@ describe("formatRelative", () => {
     it("in 1 year (future)", () => {
         const bs = new BadgerSett(new Date("2027-06-15T12:00:00Z"));
         expect(bs.formatRelative()).toBe("next year");
+    });
+
+    // Calendar-boundary accuracy tests
+    it("28 days in same calendar month → weeks, not months", () => {
+        // Jun 15 → May 18 = 28 days, still in same-ish month span but calMonths = 0 going backwards
+        // Use anchor: Jun 15. Date: May 18. days=28, calMonths: May(4) to June(5) = 1 calendar month.
+        // So this is actually 1 month. Let's use within same month: Jun 15 → Jun 1 = 14 days (2 weeks).
+        const bs = new BadgerSett(new Date("2026-06-01T12:00:00Z"));
+        expect(bs.formatRelative()).toBe("2 weeks ago"); // calMonths=0 → falls to weeks
+    });
+
+    it("exactly 1 calendar month → 1 month, not weeks", () => {
+        // May 15 is exactly 1 calendar month before Jun 15
+        const bs = new BadgerSett(new Date("2026-05-15T12:00:00Z"));
+        expect(bs.formatRelative()).toBe("last month");
+    });
+
+    it("11 calendar months → 11 months, not a year", () => {
+        // Jul 15 2025 is 11 calendar months before Jun 15 2026
+        const bs = new BadgerSett(new Date("2025-07-15T12:00:00Z"));
+        expect(bs.formatRelative()).toBe("11 months ago");
+    });
+
+    it("2 years (future)", () => {
+        const bs = new BadgerSett(new Date("2028-06-15T12:00:00Z"));
+        expect(bs.formatRelative()).toBe("in 2 years");
     });
 });
 

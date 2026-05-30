@@ -164,9 +164,14 @@ export class Badger {
     return this.currentDate.toISOString();
   }
 
-  /** Returns the Unix timestamp in seconds. */
+  /** Returns the Unix timestamp in seconds (floored). */
   toUnixTimestamp(): number {
     return Math.floor(this.currentDate.getTime() / 1000);
+  }
+
+  /** Returns the Unix timestamp in milliseconds. */
+  toMillisecondTimestamp(): number {
+    return this.currentDate.getTime();
   }
 
   /**
@@ -469,6 +474,12 @@ export class Badger {
    * ```
    */
   set(unit: Exclude<UnitOfTime, "week" | "quarter">, value: number): Badger {
+    if (unit === "month" && (value < 1 || value > 12)) throw new RangeError(`month must be 1–12, got ${value}`);
+    if (unit === "day" && (value < 1 || value > 31)) throw new RangeError(`day must be 1–31, got ${value}`);
+    if (unit === "hour" && (value < 0 || value > 23)) throw new RangeError(`hour must be 0–23, got ${value}`);
+    if (unit === "minute" && (value < 0 || value > 59)) throw new RangeError(`minute must be 0–59, got ${value}`);
+    if (unit === "second" && (value < 0 || value > 59)) throw new RangeError(`second must be 0–59, got ${value}`);
+    if (unit === "millisecond" && (value < 0 || value > 999)) throw new RangeError(`millisecond must be 0–999, got ${value}`);
     const clone = this.clone();
     const d = clone.currentDate;
     switch (unit) {
@@ -665,6 +676,9 @@ export class Badger {
    * ```
    */
   clamp(min: Badger | Date, max: Badger | Date): Badger {
+    const minTime = min instanceof Badger ? min.toDate().getTime() : min.getTime();
+    const maxTime = max instanceof Badger ? max.toDate().getTime() : max.getTime();
+    if (minTime > maxTime) throw new RangeError("clamp: min must not be after max");
     if (this.isBefore(min))
       return min instanceof Badger ? min.clone() : new Badger(min);
     if (this.isAfter(max))
@@ -696,6 +710,9 @@ export class Badger {
     end: Badger | Date,
     options: { includeStart?: boolean; includeEnd?: boolean } = {},
   ): boolean {
+    const startTime = start instanceof Badger ? start.toDate().getTime() : start.getTime();
+    const endTime = end instanceof Badger ? end.toDate().getTime() : end.getTime();
+    if (startTime > endTime) throw new RangeError("isBetween: start must not be after end");
     const afterStart = options.includeStart
       ? this.isSameOrAfter(start)
       : this.isAfter(start);
@@ -750,7 +767,10 @@ export class Badger {
    * By default the result is floored to a whole number. Pass `float: true` to get
    * the fractional value — useful for progress bars or overlap calculations.
    *
-   * Month and year diffs are calendar-based, not ms-based.
+   * Month and year diffs are calendar-based, not ms-based. Only the month (and year)
+   * components are compared — day-of-month is ignored. Jan 1 → Jan 31 = 0 months
+   * (same calendar month); Jan 31 → Feb 1 = 1 month (different calendar months,
+   * even though they are only 1 day apart).
    *
    * @example
    * ```ts

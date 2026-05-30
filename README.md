@@ -160,7 +160,7 @@ a.isSame(b, "day")  // true  — same calendar day
 a.isSame(b, "hour") // false — different hour
 ```
 
-**`isBetween(start, end, options?)`** — both boundaries are **exclusive** by default:
+**`isBetween(start, end, options?)`** — both boundaries are **exclusive** by default. Throws `RangeError` if `start > end`.
 
 ```ts
 const open  = new Badger("2026-06-01T00:00:00Z");
@@ -195,7 +195,7 @@ dt.isSameOrAfter(other)            // after or equal (exact)
 dt.isSameOrAfter(other, "month")   // after or in the same month
 ```
 
-**`clamp(min, max)`** — constrain to a range:
+**`clamp(min, max)`** — constrain to a range. Throws `RangeError` if `min > max`.
 
 ```ts
 const min = new Badger("2026-01-01T00:00:00Z");
@@ -223,13 +223,13 @@ a.diff(b, "hour", true)  // 1.5  — fractional
 b.diff(a, "minute")      // -90  — negative when b is before a
 ```
 
-Month and year diffs are calendar-based, not millisecond-based.
+Month and year diffs are calendar-based (month components only — day-of-month is ignored). Jan 1 → Jan 31 = 0 months; Jan 31 → Feb 1 = 1 month.
 
 ---
 
 ### `set(unit, value)`
 
-Returns a new `Badger` with a single field replaced. Month is 1-indexed.
+Returns a new `Badger` with a single field replaced. Month is 1-indexed. `"week"` and `"quarter"` are not supported.
 
 ```ts
 dt.set("year",  2030)
@@ -240,18 +240,21 @@ dt.set("minute", 0)
 
 Setting the month clamps the day when the target month is shorter (Jan 31 → set month to Feb → Feb 28).
 
+Out-of-range values throw a `RangeError`: month must be 1–12, day 1–31, hour 0–23, minute/second 0–59, millisecond 0–999.
+
 ### Other utilities
 
 ```ts
-dt.toISOString()      // "2026-03-15T10:30:00.000Z"
-dt.toDate()           // copy of the underlying Date object
-dt.toUnixTimestamp()  // Unix seconds (floored)
-dt.toObject()         // { year, month, day, hour, minute, second, millisecond }
-dt.clone()            // independent copy
-dt.isValid()          // false for invalid inputs
-dt.getDaysInMonth()   // 28–31
-dt.daysInYear()       // 365 or 366
-dt.getWeekNumber()    // ISO 8601 week number (1–53)
+dt.toISOString()             // "2026-03-15T10:30:00.000Z"
+dt.toDate()                  // copy of the underlying Date object
+dt.toUnixTimestamp()         // Unix seconds (floored)
+dt.toMillisecondTimestamp()  // Unix milliseconds (exact)
+dt.toObject()                // { year, month, day, hour, minute, second, millisecond }
+dt.clone()                   // independent copy
+dt.isValid()                 // false for invalid inputs
+dt.getDaysInMonth()          // 28–31
+dt.daysInYear()              // 365 or 366
+dt.getWeekNumber()           // ISO 8601 week number (1–53)
 dt.isLeapYear()
 ```
 
@@ -287,7 +290,7 @@ bs.formatDateOnly()       // "15/03/2026"
 bs.formatTimeOnly()       // "10:30:45"
 bs.getDayName()           // "Sunday"  (also: "short" | "narrow")
 bs.getMonthName()         // "March"   (also: "short" | "narrow")
-bs.getDaysOfTheWeek()     // ["Monday", "Tuesday", …, "Sunday"]
+bs.getDaysOfTheWeek()     // ["Monday", …, "Sunday"]  — starts from locale's first day of week
 bs.getMonthsOfTheYear()   // ["January", …, "December"]
 ```
 
