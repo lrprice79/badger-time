@@ -1,0 +1,241 @@
+const defaultDateFormatOptions: Intl.DateTimeFormatOptions = {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+    timeZone: "Europe/London"
+};
+
+type Month = "numeric" | "2-digit" | "long" | "short" | "narrow" | undefined;
+type Weekday = "long" | "short" | "narrow" | undefined;
+
+/** Maps BCP 47 locale tags to their corresponding IANA time zones. */
+export enum BadgerZone {
+    "sv-SE" = "Europe/Stockholm",
+    "fi-FI" = "Europe/Helsinki",
+    "da-DK" = "Europe/Copenhagen",
+    "de-DE" = "Europe/Berlin",
+    "en-GB" = "Europe/London"
+}
+
+/**
+ * Locale-aware date formatter built on `Intl.DateTimeFormat`.
+ *
+ * Defaults to `en-GB` locale and `Europe/London` time zone.
+ *
+ * @example
+ * ```ts
+ * const df = new BadgerSett(new Date(), new Intl.Locale("en-GB"));
+ * df.formatDate();          // "15/03/2026 10:30:45"
+ * df.formatForBackend();    // "2026-03-15T10:30:45.000Z"
+ * df.getDayName();          // "Sunday"
+ * df.formatRelative();      // "in 2 days"
+ * ```
+ */
+export class BadgerSett extends Intl.DateTimeFormat {
+    currentDate: Date;
+
+    /**
+     * @param date - Date to format. Defaults to `new Date()`.
+     * @param locale - BCP 47 locale. Defaults to `en-GB`.
+     * @param options - `Intl.DateTimeFormatOptions` override.
+     */
+    constructor(date?: Date | string, locale?: Intl.Locale, options?: Intl.DateTimeFormatOptions) {
+        super(locale ? locale.baseName : "en-GB", options ? options : defaultDateFormatOptions);
+        this.currentDate = date ? new Date(date) : new Date();
+    }
+
+    /** Returns the date as a UTC ISO 8601 string (e.g. `"2026-03-15T09:30:45.000Z"`), suitable for backend APIs. */
+    formatForBackend(): string {
+        return this.currentDate.toISOString();
+    }
+
+    /**
+     * Returns a UTC ISO string representing midnight (00:00:00) in the configured timezone.
+     * Does not mutate `currentDate`.
+     */
+    formatForBackendToStartOfDay(): string {
+        return this.toUtcIsoAtTimeInTimezone(0, 0, 0, 0);
+    }
+
+    /**
+     * Returns a UTC ISO string representing end-of-day (23:59:59.999) in the configured timezone.
+     * Does not mutate `currentDate`.
+     */
+    formatForBackendToEndOfDay(): string {
+        return this.toUtcIsoAtTimeInTimezone(23, 59, 59, 999);
+    }
+
+    /**
+     * Computes the UTC instant for a specific time-of-day in the configured timezone
+     * on the same calendar date as `currentDate` (in that timezone).
+     */
+    private toUtcIsoAtTimeInTimezone(hours: number, minutes: number, seconds: number, ms: number): string {
+        const tz = this.resolvedOptions().timeZone;
+
+        // Extract the calendar date as it appears in the configured timezone
+        const parts = new Intl.DateTimeFormat("en-GB", {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            timeZone: tz
+        }).formatToParts(this.currentDate);
+
+        const year = parts.find(p => p.type === "year")!.value;
+        const month = parts.find(p => p.type === "month")!.value;
+        const day = parts.find(p => p.type === "day")!.value;
+
+        const h = String(hours).padStart(2, "0");
+        const m = String(minutes).padStart(2, "0");
+        const s = String(seconds).padStart(2, "0");
+        const msStr = String(ms).padStart(3, "0");
+        const localIso = `${year}-${month}-${day}T${h}:${m}:${s}.${msStr}`;
+
+        // Find the UTC instant that corresponds to this local time in the target timezone.
+        // Start with a UTC guess, then compute the offset and adjust.
+        const utcGuess = new Date(localIso + "Z");
+        const offset = this.getTimezoneOffsetMs(utcGuess, tz);
+        const adjusted = new Date(utcGuess.getTime() + offset);
+
+        // Verify: the offset may have changed (DST boundary). Re-check and adjust if needed.
+        const offset2 = this.getTimezoneOffsetMs(adjusted, tz);
+        if (offset !== offset2) {
+            return new Date(utcGuess.getTime() + offset2).toISOString();
+        }
+        return adjusted.toISOString();
+    }
+
+    /**
+     * Returns the offset in ms to convert UTC to a given timezone.
+     * Positive = timezone is behind UTC, negative = timezone is ahead of UTC.
+     */
+    private getTimezoneOffsetMs(date: Date, tz: string): number {
+        const toMs = (timeZone: string) => {
+            const p = new Intl.DateTimeFormat("en-GB", {
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit",
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+                hour12: false,
+                timeZone
+            }).formatToParts(date);
+            const get = (type: string) => Number(p.find(x => x.type === type)!.value);
+            return Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
+        };
+        return toMs("UTC") - toMs(tz);
+    }
+
+    /** Formats the full date and time using the configured locale and options. */
+    formatDate() {
+        return this.format(this.currentDate);
+    }
+
+    /** Formats only the date portion (year, month, day) without time. */
+    formatDateOnly() {
+        return new Intl.DateTimeFormat(this.resolvedOptions().locale, {
+            year: "numeric",
+            month: "2-digit",
+            day: "2-digit",
+            timeZone: this.resolvedOptions().timeZone
+        }).format(this.currentDate);
+    }
+
+    /** Formats only the time portion (hour, minute, second) in 24-hour format. */
+    formatTimeOnly() {
+        return new Intl.DateTimeFormat(this.resolvedOptions().locale, {
+            hour: "2-digit",
+            minute: "2-digit",
+            second: "2-digit",
+            hour12: false,
+            timeZone: this.resolvedOptions().timeZone
+        }).format(this.currentDate);
+    }
+
+    /** Returns the localised weekday name (e.g. `"Monday"`, `"Mon"`, `"M"`). */
+    getDayName(format: Weekday = "long") {
+        return new Intl.DateTimeFormat(this.resolvedOptions().locale, {
+            weekday: format
+        }).format(this.currentDate);
+    }
+
+    /** Returns the localised month name (e.g. `"March"`, `"Mar"`, `"M"`). */
+    getMonthName(format: Month = "long") {
+        return new Intl.DateTimeFormat(this.resolvedOptions().locale, {
+            month: format
+        }).format(this.currentDate);
+    }
+
+    /** Returns all 7 weekday names starting from Monday in the configured locale. */
+    getDaysOfTheWeek(format: Weekday = "long"): string[] {
+        const locale = this.resolvedOptions().locale;
+        const formatter = new Intl.DateTimeFormat(locale, { weekday: format });
+        // Start from a known Monday (2024-01-01 is a Monday)
+        const monday = new Date(2024, 0, 1);
+        return Array.from({ length: 7 }, (_, i) => {
+            const day = new Date(monday);
+            day.setDate(monday.getDate() + i);
+            return formatter.format(day);
+        });
+    }
+
+    /** Returns all 12 month names (January–December) in the configured locale. */
+    getMonthsOfTheYear(format: Month = "long"): string[] {
+        const locale = this.resolvedOptions().locale;
+        const formatter = new Intl.DateTimeFormat(locale, { month: format });
+        return Array.from({ length: 12 }, (_, i) => {
+            return formatter.format(new Date(2024, i, 1));
+        });
+    }
+
+    /** Returns a human-readable relative time string (e.g. `"3 hours ago"`, `"in 2 days"`). */
+    formatRelative(): string {
+        const now = new Date();
+        const diffMs = now.getTime() - this.currentDate.getTime();
+        const absDiffMs = Math.abs(diffMs);
+        const isFuture = diffMs < 0;
+
+        const seconds = Math.floor(absDiffMs / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const hours = Math.floor(minutes / 60);
+        const days = Math.floor(hours / 24);
+        const weeks = Math.floor(days / 7);
+        const months = Math.floor(days / 30);
+        const years = Math.floor(days / 365);
+
+        let value: number;
+        let unit: Intl.RelativeTimeFormatUnit;
+
+        if (seconds < 60) {
+            value = seconds;
+            unit = "second";
+        } else if (minutes < 60) {
+            value = minutes;
+            unit = "minute";
+        } else if (hours < 24) {
+            value = hours;
+            unit = "hour";
+        } else if (days < 7) {
+            value = days;
+            unit = "day";
+        } else if (weeks < 4) {
+            value = weeks;
+            unit = "week";
+        } else if (months < 12) {
+            value = months;
+            unit = "month";
+        } else {
+            value = years;
+            unit = "year";
+        }
+
+        const rtf = new Intl.RelativeTimeFormat(this.resolvedOptions().locale, {
+            numeric: "auto"
+        });
+        return rtf.format(isFuture ? value : -value, unit);
+    }
+}

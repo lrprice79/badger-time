@@ -1,0 +1,43 @@
+{
+  "name": "badger-time",
+  "version": "1.0.0",
+  "description": "Lightweight date engine and formatter — no moment, no date-fns.",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "npm run build:types && npm run build:bundle && npm run build:obfuscate",
+    "build:types": "tsc --emitDeclarationOnly --declaration --declarationDir dist",
+    "build:bundle": "rollup -c",
+    "build:obfuscate": "node scripts/obfuscate.mjs",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "date",
+    "datetime",
+    "formatter",
+    "intl",
+    "lightweight"
+  ],
+  "license": "UNLICENSED",
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@rollup/plugin-typescript": "^12.1.2",
+    "javascript-obfuscator": "^4.1.1",
+    "rollup": "^4.30.1",
+    "tslib": "^2.8.1",
+    "typescript": "^5.7.3"
+  }
+}

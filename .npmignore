@@ -1,0 +1,7 @@
+src/
+scripts/
+rollup.config.mjs
+tsconfig.json
+CLAUDE.md
+*.ts
+!dist/
