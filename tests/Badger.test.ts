@@ -95,6 +95,7 @@ describe("Badger getters", () => {
     it(".hour", () => expect(dt.hour).toBe(15));
     it(".minute", () => expect(dt.minute).toBe(30));
     it(".second", () => expect(dt.second).toBe(45));
+    it(".millisecond", () => expect(dt.millisecond).toBe(123));
     it(".dayOfWeek — Saturday", () => expect(dt.dayOfWeek).toBe(6));
 
     it(".dayOfWeek — Sunday", () => {
@@ -483,6 +484,7 @@ describe("isBetween", () => {
     const end   = new Badger("2026-12-31T00:00:00Z");
     const mid   = new Badger("2026-06-15T00:00:00Z");
 
+    // default "()" exclusive
     it("date between start and end → true", () => expect(mid.isBetween(start, end)).toBe(true));
     it("date equal to start → false (exclusive)", () => expect(start.isBetween(start, end)).toBe(false));
     it("date equal to end → false (exclusive)", () => expect(end.isBetween(start, end)).toBe(false));
@@ -492,6 +494,28 @@ describe("isBetween", () => {
     it("date after end → false", () => {
         expect(new Badger("2027-01-01T00:00:00Z").isBetween(start, end)).toBe(false);
     });
+
+    // both inclusive
+    it("{ includeStart: true, includeEnd: true } — equal to start → true", () =>
+        expect(start.isBetween(start, end, { includeStart: true, includeEnd: true })).toBe(true));
+    it("{ includeStart: true, includeEnd: true } — equal to end → true", () =>
+        expect(end.isBetween(start, end, { includeStart: true, includeEnd: true })).toBe(true));
+    it("{ includeStart: true, includeEnd: true } — mid → true", () =>
+        expect(mid.isBetween(start, end, { includeStart: true, includeEnd: true })).toBe(true));
+    it("{ includeStart: true, includeEnd: true } — before start → false", () =>
+        expect(new Badger("2025-12-31T00:00:00Z").isBetween(start, end, { includeStart: true, includeEnd: true })).toBe(false));
+
+    // inclusive start only
+    it("{ includeStart: true } — equal to start → true", () =>
+        expect(start.isBetween(start, end, { includeStart: true })).toBe(true));
+    it("{ includeStart: true } — equal to end → false", () =>
+        expect(end.isBetween(start, end, { includeStart: true })).toBe(false));
+
+    // inclusive end only
+    it("{ includeEnd: true } — equal to start → false", () =>
+        expect(start.isBetween(start, end, { includeEnd: true })).toBe(false));
+    it("{ includeEnd: true } — equal to end → true", () =>
+        expect(end.isBetween(start, end, { includeEnd: true })).toBe(true));
 });
 
 // ─── isToday / isYesterday / isTomorrow ──────────────────────────────────────
@@ -601,6 +625,573 @@ describe("diff", () => {
 
     it("accepts native Date", () => {
         expect(a.diff(new Date("2026-06-15T08:00:00Z"), "hour")).toBe(2);
+    });
+
+    it("months diff accepts native Date", () => {
+        const x = new Badger("2026-09-01T00:00:00Z");
+        expect(x.diff(new Date("2026-06-01T00:00:00Z"), "month")).toBe(3);
+    });
+
+    it("quarter diff accepts native Date", () => {
+        const x = new Badger("2026-04-01T00:00:00Z");
+        expect(x.diff(new Date("2026-01-01T00:00:00Z"), "quarter")).toBe(1);
+    });
+
+    it("year diff accepts native Date", () => {
+        const x = new Badger("2030-01-01T00:00:00Z");
+        expect(x.diff(new Date("2026-01-01T00:00:00Z"), "year")).toBe(4);
+    });
+});
+
+// ─── isSame with second / millisecond / quarter ───────────────────────────────
+
+describe("isSame — second, millisecond, quarter units", () => {
+    it("'second' — same second → true", () => {
+        const a = new Badger("2026-06-15T10:30:45.000Z");
+        const b = new Badger("2026-06-15T10:30:45.999Z");
+        expect(a.isSame(b, "second")).toBe(true);
+    });
+
+    it("'second' — different second → false", () => {
+        const a = new Badger("2026-06-15T10:30:45.000Z");
+        const b = new Badger("2026-06-15T10:30:46.000Z");
+        expect(a.isSame(b, "second")).toBe(false);
+    });
+
+    it("'millisecond' — exact match → true", () => {
+        const a = new Badger("2026-06-15T10:30:45.123Z");
+        const b = new Badger("2026-06-15T10:30:45.123Z");
+        expect(a.isSame(b, "millisecond")).toBe(true);
+    });
+
+    it("'millisecond' — differ by 1ms → false", () => {
+        const a = new Badger("2026-06-15T10:30:45.123Z");
+        const b = new Badger("2026-06-15T10:30:45.124Z");
+        expect(a.isSame(b, "millisecond")).toBe(false);
+    });
+
+    it("'quarter' — same quarter → true", () => {
+        const a = new Badger("2026-01-01T00:00:00Z");
+        const b = new Badger("2026-03-31T00:00:00Z");
+        expect(a.isSame(b, "quarter")).toBe(true);
+    });
+
+    it("'quarter' — different quarter → false", () => {
+        const a = new Badger("2026-01-01T00:00:00Z");
+        const b = new Badger("2026-04-01T00:00:00Z");
+        expect(a.isSame(b, "quarter")).toBe(false);
+    });
+
+    it("'quarter' — same quarter different years → false", () => {
+        const a = new Badger("2026-01-01T00:00:00Z");
+        const b = new Badger("2027-01-01T00:00:00Z");
+        expect(a.isSame(b, "quarter")).toBe(false);
+    });
+});
+
+// ─── add quarter unit ─────────────────────────────────────────────────────────
+
+describe("add / subtract quarter unit", () => {
+    it("add 1 quarter — Q1 → Q2", () => {
+        const result = new Badger("2026-01-15T00:00:00Z").add(1, "quarter");
+        expect(result.month).toBe(4);
+        expect(result.day).toBe(15);
+    });
+
+    it("add 4 quarters → same date next year", () => {
+        const result = new Badger("2026-06-15T00:00:00Z").add(4, "quarter");
+        expect(result.year).toBe(2027);
+        expect(result.month).toBe(6);
+    });
+
+    it("add quarter clamps end-of-month (Jan 31 + 1 quarter → Apr 30)", () => {
+        const result = new Badger("2026-01-31T00:00:00Z").add(1, "quarter");
+        expect(result.month).toBe(4);
+        expect(result.day).toBe(30);
+    });
+
+    it("subtract 1 quarter", () => {
+        const result = new Badger("2026-04-15T00:00:00Z").subtract(1, "quarter");
+        expect(result.month).toBe(1);
+        expect(result.day).toBe(15);
+    });
+});
+
+// ─── diff quarter unit ────────────────────────────────────────────────────────
+
+describe("diff — quarter unit", () => {
+    it("1 quarter apart", () => {
+        const a = new Badger("2026-04-01T00:00:00Z");
+        const b = new Badger("2026-01-01T00:00:00Z");
+        expect(a.diff(b, "quarter")).toBe(1);
+    });
+
+    it("4 quarters apart → 1 year", () => {
+        const a = new Badger("2027-01-01T00:00:00Z");
+        const b = new Badger("2026-01-01T00:00:00Z");
+        expect(a.diff(b, "quarter")).toBe(4);
+    });
+
+    it("negative when this is before other", () => {
+        const a = new Badger("2026-01-01T00:00:00Z");
+        const b = new Badger("2026-04-01T00:00:00Z");
+        expect(a.diff(b, "quarter")).toBe(-1);
+    });
+
+    it("same quarter → 0", () => {
+        const a = new Badger("2026-02-15T00:00:00Z");
+        const b = new Badger("2026-01-01T00:00:00Z");
+        expect(a.diff(b, "quarter")).toBe(0);
+    });
+});
+
+// ─── diff with float option ───────────────────────────────────────────────────
+
+describe("diff float option", () => {
+    it("hours — 1.5 hours returns 1 without float", () => {
+        const a = new Badger("2026-06-15T10:30:00.000Z");
+        const b = new Badger("2026-06-15T09:00:00.000Z");
+        expect(a.diff(b, "hour")).toBe(1);
+    });
+
+    it("hours — 1.5 hours returns 1.5 with float", () => {
+        const a = new Badger("2026-06-15T10:30:00.000Z");
+        const b = new Badger("2026-06-15T09:00:00.000Z");
+        expect(a.diff(b, "hour", true)).toBe(1.5);
+    });
+
+    it("days — 1.5 days returns 1 without float", () => {
+        const a = new Badger("2026-06-16T12:00:00.000Z");
+        const b = new Badger("2026-06-15T00:00:00.000Z");
+        expect(a.diff(b, "day")).toBe(1);
+    });
+
+    it("days — 1.5 days returns 1.5 with float", () => {
+        const a = new Badger("2026-06-16T12:00:00.000Z");
+        const b = new Badger("2026-06-15T00:00:00.000Z");
+        expect(a.diff(b, "day", true)).toBe(1.5);
+    });
+
+    it("minutes — 1.5 minutes returns 1 without float", () => {
+        const a = new Badger("2026-06-15T10:01:30.000Z");
+        const b = new Badger("2026-06-15T10:00:00.000Z");
+        expect(a.diff(b, "minute")).toBe(1);
+    });
+
+    it("minutes — 1.5 minutes returns 1.5 with float", () => {
+        const a = new Badger("2026-06-15T10:01:30.000Z");
+        const b = new Badger("2026-06-15T10:00:00.000Z");
+        expect(a.diff(b, "minute", true)).toBe(1.5);
+    });
+
+    it("float false (explicit) behaves same as no flag", () => {
+        const a = new Badger("2026-06-15T10:30:00.000Z");
+        const b = new Badger("2026-06-15T09:00:00.000Z");
+        expect(a.diff(b, "hour", false)).toBe(1);
+    });
+
+    it("milliseconds and seconds ignore float (always exact)", () => {
+        const a = new Badger("2026-06-15T10:00:01.500Z");
+        const b = new Badger("2026-06-15T10:00:00.000Z");
+        expect(a.diff(b, "millisecond", true)).toBe(1500);
+        expect(a.diff(b, "second", true)).toBe(1.5);
+    });
+});
+
+// ─── add / subtract with object ───────────────────────────────────────────────
+
+describe("add / subtract with object", () => {
+    const dt = new Badger("2026-06-15T10:00:00.000Z");
+
+    it("add single unit via object", () => {
+        expect(dt.add({ days: 7 }).toISOString()).toBe("2026-06-22T10:00:00.000Z");
+    });
+
+    it("add multiple units at once", () => {
+        expect(dt.add({ days: 1, hours: 2, minutes: 30 }).toISOString()).toBe("2026-06-16T12:30:00.000Z");
+    });
+
+    it("add months and days together", () => {
+        const result = dt.add({ months: 1, days: 5 });
+        expect(result.month).toBe(7);
+        expect(result.day).toBe(20);
+    });
+
+    it("subtract single unit via object", () => {
+        expect(dt.subtract({ hours: 2 }).toISOString()).toBe("2026-06-15T08:00:00.000Z");
+    });
+
+    it("subtract multiple units", () => {
+        expect(dt.subtract({ days: 1, hours: 1 }).toISOString()).toBe("2026-06-14T09:00:00.000Z");
+    });
+
+    it("does not mutate original", () => {
+        dt.add({ years: 10 });
+        expect(dt.year).toBe(2026);
+    });
+
+    it("empty object returns clone", () => {
+        expect(dt.add({}).toISOString()).toBe(dt.toISOString());
+    });
+
+    it("singular and plural keys both work — years/year, days/day", () => {
+        expect(dt.add({ year: 1 }).year).toBe(2027);
+        expect(dt.add({ years: 1 }).year).toBe(2027);
+        expect(dt.add({ day: 1 }).day).toBe(16);
+        expect(dt.add({ days: 1 }).day).toBe(16);
+    });
+});
+
+// ─── toObject ─────────────────────────────────────────────────────────────────
+
+describe("toObject", () => {
+    it("returns all fields correctly", () => {
+        const dt = new Badger("2026-07-04T15:30:45.123Z");
+        expect(dt.toObject()).toEqual({
+            year: 2026,
+            month: 7,
+            day: 4,
+            hour: 15,
+            minute: 30,
+            second: 45,
+            millisecond: 123
+        });
+    });
+
+    it("Jan 1 midnight", () => {
+        const dt = new Badger("2026-01-01T00:00:00.000Z");
+        expect(dt.toObject()).toEqual({
+            year: 2026,
+            month: 1,
+            day: 1,
+            hour: 0,
+            minute: 0,
+            second: 0,
+            millisecond: 0
+        });
+    });
+
+    it("returned object is a plain object, not a Badger", () => {
+        const obj = new Badger("2026-06-15T00:00:00Z").toObject();
+        expect(obj).not.toBeInstanceOf(Badger);
+    });
+
+    it("mutating returned object does not affect the Badger", () => {
+        const dt = new Badger("2026-06-15T00:00:00Z");
+        const obj = dt.toObject();
+        obj.year = 2000;
+        expect(dt.year).toBe(2026);
+    });
+});
+
+// ─── clamp ────────────────────────────────────────────────────────────────────
+
+describe("clamp", () => {
+    const min = new Badger("2026-01-01T00:00:00Z");
+    const max = new Badger("2026-12-31T00:00:00Z");
+
+    it("date within range → unchanged", () => {
+        const mid = new Badger("2026-06-15T00:00:00Z");
+        expect(mid.clamp(min, max).toISOString()).toBe(mid.toISOString());
+    });
+
+    it("date before min → clamped to min", () => {
+        const before = new Badger("2025-06-15T00:00:00Z");
+        expect(before.clamp(min, max).toISOString()).toBe(min.toISOString());
+    });
+
+    it("date after max → clamped to max", () => {
+        const after = new Badger("2027-06-15T00:00:00Z");
+        expect(after.clamp(min, max).toISOString()).toBe(max.toISOString());
+    });
+
+    it("date equal to min → returns min", () => {
+        expect(min.clamp(min, max).toISOString()).toBe(min.toISOString());
+    });
+
+    it("date equal to max → returns max", () => {
+        expect(max.clamp(min, max).toISOString()).toBe(max.toISOString());
+    });
+
+    it("does not mutate original", () => {
+        const before = new Badger("2025-06-15T00:00:00Z");
+        before.clamp(min, max);
+        expect(before.year).toBe(2025);
+    });
+
+    it("accepts native Date for min and max", () => {
+        const before = new Badger("2025-06-15T00:00:00Z");
+        const result = before.clamp(new Date("2026-01-01T00:00:00Z"), new Date("2026-12-31T00:00:00Z"));
+        expect(result.toISOString()).toBe("2026-01-01T00:00:00.000Z");
+    });
+
+    it("accepts native Date for max", () => {
+        const after = new Badger("2027-06-15T00:00:00Z");
+        const result = after.clamp(new Date("2026-01-01T00:00:00Z"), new Date("2026-12-31T00:00:00Z"));
+        expect(result.toISOString()).toBe("2026-12-31T00:00:00.000Z");
+    });
+});
+
+// ─── Badger.min / Badger.max ─────────────────────────────────────────────────
+
+describe("Badger.min / Badger.max", () => {
+    const a = new Badger("2026-01-01T00:00:00Z");
+    const b = new Badger("2026-06-15T00:00:00Z");
+    const c = new Badger("2026-12-31T00:00:00Z");
+
+    it("min — returns the earliest", () => expect(Badger.min(b, a, c).toISOString()).toBe(a.toISOString()));
+    it("min — single argument returns itself", () => expect(Badger.min(b).toISOString()).toBe(b.toISOString()));
+    it("min — equal dates returns one of them", () => {
+        const x = new Badger("2026-06-15T00:00:00Z");
+        expect(Badger.min(b, x).toISOString()).toBe(b.toISOString());
+    });
+
+    it("max — returns the latest", () => expect(Badger.max(b, a, c).toISOString()).toBe(c.toISOString()));
+    it("max — single argument returns itself", () => expect(Badger.max(b).toISOString()).toBe(b.toISOString()));
+    it("max — equal dates returns one of them", () => {
+        const x = new Badger("2026-06-15T00:00:00Z");
+        expect(Badger.max(b, x).toISOString()).toBe(b.toISOString());
+    });
+});
+
+// ─── set ──────────────────────────────────────────────────────────────────────
+
+describe("set", () => {
+    const dt = new Badger("2026-06-15T10:30:45.123Z");
+
+    it("set year", () => expect(dt.set("year", 2030).year).toBe(2030));
+    it("set month", () => expect(dt.set("month", 12).month).toBe(12));
+    it("set day", () => expect(dt.set("day", 1).day).toBe(1));
+    it("set hour", () => expect(dt.set("hour", 9).hour).toBe(9));
+    it("set minute", () => expect(dt.set("minute", 0).minute).toBe(0));
+    it("set second", () => expect(dt.set("second", 59).second).toBe(59));
+    it("set millisecond", () => expect(dt.set("millisecond", 0).millisecond).toBe(0));
+
+    it("does not mutate the original", () => {
+        dt.set("year", 2099);
+        expect(dt.year).toBe(2026);
+    });
+
+    it("set year from leap day clamps to Feb 28 on non-leap year", () => {
+        const leapDay = new Badger("2024-02-29T00:00:00Z");
+        const result = leapDay.set("year", 2026);
+        expect(result.month).toBe(2);
+        expect(result.day).toBe(28);
+    });
+
+    it("set month to Feb on Jan 31 clamps to Feb 28", () => {
+        const jan31 = new Badger("2026-01-31T00:00:00Z");
+        const result = jan31.set("month", 2);
+        expect(result.month).toBe(2);
+        expect(result.day).toBe(28);
+    });
+
+    it("set month is 1-indexed (1 = January)", () => {
+        expect(dt.set("month", 1).month).toBe(1);
+    });
+});
+
+// ─── daysInYear ───────────────────────────────────────────────────────────────
+
+describe("daysInYear", () => {
+    it("non-leap year → 365", () => expect(new Badger("2026-06-15T00:00:00Z").daysInYear()).toBe(365));
+    it("leap year → 366", () => expect(new Badger("2024-06-15T00:00:00Z").daysInYear()).toBe(366));
+    it("century non-leap → 365", () => expect(new Badger("1900-01-01T00:00:00Z").daysInYear()).toBe(365));
+    it("400-year leap → 366", () => expect(new Badger("2000-06-15T00:00:00Z").daysInYear()).toBe(366));
+});
+
+// ─── startOf/endOf quarter ────────────────────────────────────────────────────
+
+describe("startOf / endOf quarter", () => {
+    it("startOf quarter — Q1 mid → Jan 1 midnight", () => {
+        expect(new Badger("2026-02-15T12:00:00Z").startOf("quarter").toISOString()).toBe("2026-01-01T00:00:00.000Z");
+    });
+    it("startOf quarter — Q2 mid → Apr 1 midnight", () => {
+        expect(new Badger("2026-05-20T12:00:00Z").startOf("quarter").toISOString()).toBe("2026-04-01T00:00:00.000Z");
+    });
+    it("startOf quarter — Q3 mid → Jul 1 midnight", () => {
+        expect(new Badger("2026-08-10T12:00:00Z").startOf("quarter").toISOString()).toBe("2026-07-01T00:00:00.000Z");
+    });
+    it("startOf quarter — Q4 mid → Oct 1 midnight", () => {
+        expect(new Badger("2026-11-05T12:00:00Z").startOf("quarter").toISOString()).toBe("2026-10-01T00:00:00.000Z");
+    });
+    it("startOf quarter — already on first day of quarter", () => {
+        expect(new Badger("2026-04-01T15:00:00Z").startOf("quarter").toISOString()).toBe("2026-04-01T00:00:00.000Z");
+    });
+
+    it("endOf quarter — Q1 mid → Mar 31 23:59:59.999", () => {
+        expect(new Badger("2026-02-15T12:00:00Z").endOf("quarter").toISOString()).toBe("2026-03-31T23:59:59.999Z");
+    });
+    it("endOf quarter — Q2 mid → Jun 30 23:59:59.999", () => {
+        expect(new Badger("2026-05-20T12:00:00Z").endOf("quarter").toISOString()).toBe("2026-06-30T23:59:59.999Z");
+    });
+    it("endOf quarter — Q3 mid → Sep 30 23:59:59.999", () => {
+        expect(new Badger("2026-08-10T12:00:00Z").endOf("quarter").toISOString()).toBe("2026-09-30T23:59:59.999Z");
+    });
+    it("endOf quarter — Q4 mid → Dec 31 23:59:59.999", () => {
+        expect(new Badger("2026-11-05T12:00:00Z").endOf("quarter").toISOString()).toBe("2026-12-31T23:59:59.999Z");
+    });
+});
+
+// ─── quarter ──────────────────────────────────────────────────────────────────
+
+describe("quarter", () => {
+    it("Jan → Q1", () => expect(new Badger("2026-01-01T00:00:00Z").quarter).toBe(1));
+    it("Mar → Q1", () => expect(new Badger("2026-03-31T00:00:00Z").quarter).toBe(1));
+    it("Apr → Q2", () => expect(new Badger("2026-04-01T00:00:00Z").quarter).toBe(2));
+    it("Jun → Q2", () => expect(new Badger("2026-06-30T00:00:00Z").quarter).toBe(2));
+    it("Jul → Q3", () => expect(new Badger("2026-07-01T00:00:00Z").quarter).toBe(3));
+    it("Sep → Q3", () => expect(new Badger("2026-09-30T00:00:00Z").quarter).toBe(3));
+    it("Oct → Q4", () => expect(new Badger("2026-10-01T00:00:00Z").quarter).toBe(4));
+    it("Dec → Q4", () => expect(new Badger("2026-12-31T00:00:00Z").quarter).toBe(4));
+});
+
+// ─── weekYear ─────────────────────────────────────────────────────────────────
+
+describe("weekYear", () => {
+    it("mid-year — week year matches calendar year", () => expect(new Badger("2026-06-15T00:00:00Z").weekYear).toBe(2026));
+    it("Jan 1 2021 (Fri) — belongs to week 53 of 2020", () => expect(new Badger("2021-01-01T00:00:00Z").weekYear).toBe(2020));
+    it("Dec 31 2020 (Thu) — belongs to week 53 of 2020", () => expect(new Badger("2020-12-31T00:00:00Z").weekYear).toBe(2020));
+    it("Jan 4 2021 (Mon) — week 1 of 2021", () => expect(new Badger("2021-01-04T00:00:00Z").weekYear).toBe(2021));
+    it("Dec 28 2026 (Mon) — week 53, still 2026", () => expect(new Badger("2026-12-28T00:00:00Z").weekYear).toBe(2026));
+});
+
+// ─── dayOfYear ────────────────────────────────────────────────────────────────
+
+describe("dayOfYear", () => {
+    it("Jan 1 → 1", () => expect(new Badger("2026-01-01T00:00:00Z").dayOfYear).toBe(1));
+    it("Dec 31 non-leap → 365", () => expect(new Badger("2026-12-31T00:00:00Z").dayOfYear).toBe(365));
+    it("Dec 31 leap year → 366", () => expect(new Badger("2024-12-31T00:00:00Z").dayOfYear).toBe(366));
+    it("Jun 15 2026 → 166", () => expect(new Badger("2026-06-15T00:00:00Z").dayOfYear).toBe(166));
+    it("Feb 28 non-leap → 59", () => expect(new Badger("2026-02-28T00:00:00Z").dayOfYear).toBe(59));
+    it("Feb 29 leap → 60", () => expect(new Badger("2024-02-29T00:00:00Z").dayOfYear).toBe(60));
+    it("Mar 1 non-leap → 60", () => expect(new Badger("2026-03-01T00:00:00Z").dayOfYear).toBe(60));
+    it("Mar 1 leap → 61", () => expect(new Badger("2024-03-01T00:00:00Z").dayOfYear).toBe(61));
+});
+
+// ─── isPast / isFuture ────────────────────────────────────────────────────────
+
+describe("isPast / isFuture", () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-06-15T12:00:00Z"));
+    });
+    afterEach(() => vi.useRealTimers());
+
+    it("isPast — true for a past date", () => expect(new Badger("2026-06-14T00:00:00Z").isPast()).toBe(true));
+    it("isPast — false for a future date", () => expect(new Badger("2026-06-16T00:00:00Z").isPast()).toBe(false));
+    it("isPast — false for exact now", () => expect(new Badger("2026-06-15T12:00:00Z").isPast()).toBe(false));
+
+    it("isFuture — true for a future date", () => expect(new Badger("2026-06-16T00:00:00Z").isFuture()).toBe(true));
+    it("isFuture — false for a past date", () => expect(new Badger("2026-06-14T00:00:00Z").isFuture()).toBe(false));
+    it("isFuture — false for exact now", () => expect(new Badger("2026-06-15T12:00:00Z").isFuture()).toBe(false));
+});
+
+// ─── isSameOrBefore / isSameOrAfter ──────────────────────────────────────────
+
+describe("isSameOrBefore / isSameOrAfter", () => {
+    const earlier = new Badger("2026-01-01T00:00:00Z");
+    const same    = new Badger("2026-06-15T00:00:00Z");
+    const later   = new Badger("2026-12-31T00:00:00Z");
+
+    it("isSameOrBefore — true when before", () => expect(earlier.isSameOrBefore(same)).toBe(true));
+    it("isSameOrBefore — true when equal", () => expect(same.isSameOrBefore(new Badger("2026-06-15T00:00:00Z"))).toBe(true));
+    it("isSameOrBefore — false when after", () => expect(later.isSameOrBefore(same)).toBe(false));
+
+    it("isSameOrAfter — true when after", () => expect(later.isSameOrAfter(same)).toBe(true));
+    it("isSameOrAfter — true when equal", () => expect(same.isSameOrAfter(new Badger("2026-06-15T00:00:00Z"))).toBe(true));
+    it("isSameOrAfter — false when before", () => expect(earlier.isSameOrAfter(same)).toBe(false));
+
+    it("isSameOrBefore accepts native Date", () => {
+        expect(earlier.isSameOrBefore(new Date("2026-06-15T00:00:00Z"))).toBe(true);
+    });
+
+    it("isSameOrAfter accepts native Date", () => {
+        expect(later.isSameOrAfter(new Date("2026-06-15T00:00:00Z"))).toBe(true);
+    });
+
+    // with unit granularity
+    it("isSameOrBefore with unit — same day, later time → true", () => {
+        const a = new Badger("2026-06-15T08:00:00Z");
+        const b = new Badger("2026-06-15T22:00:00Z");
+        expect(a.isSameOrBefore(b, "day")).toBe(true);
+    });
+
+    it("isSameOrBefore with unit — same month, earlier day → true", () => {
+        const a = new Badger("2026-06-01T00:00:00Z");
+        const b = new Badger("2026-06-30T00:00:00Z");
+        expect(a.isSameOrBefore(b, "month")).toBe(true);
+    });
+
+    it("isSameOrBefore with unit — same month different times → true (same granularity)", () => {
+        const a = new Badger("2026-06-30T23:59:59Z");
+        const b = new Badger("2026-06-01T00:00:00Z");
+        expect(a.isSameOrBefore(b, "month")).toBe(true);
+    });
+
+    it("isSameOrAfter with unit — same day, earlier time → true", () => {
+        const a = new Badger("2026-06-15T22:00:00Z");
+        const b = new Badger("2026-06-15T08:00:00Z");
+        expect(a.isSameOrAfter(b, "day")).toBe(true);
+    });
+
+    it("isSameOrAfter with unit — different month → false", () => {
+        const a = new Badger("2026-05-31T00:00:00Z");
+        const b = new Badger("2026-06-01T00:00:00Z");
+        expect(a.isSameOrAfter(b, "month")).toBe(false);
+    });
+
+    it("isSameOrBefore with unit — strictly before (isSame false, isBefore true)", () => {
+        const a = new Badger("2026-05-15T00:00:00Z");
+        const b = new Badger("2026-06-01T00:00:00Z");
+        expect(a.isSameOrBefore(b, "month")).toBe(true);
+    });
+
+    it("isSameOrAfter with unit — strictly after (isSame false, isAfter true)", () => {
+        const a = new Badger("2026-07-01T00:00:00Z");
+        const b = new Badger("2026-06-30T00:00:00Z");
+        expect(a.isSameOrAfter(b, "month")).toBe(true);
+    });
+});
+
+// ─── second unit in add / subtract / diff ─────────────────────────────────────
+
+describe("second as a unit", () => {
+    it("add seconds", () => {
+        expect(new Badger("2026-06-15T10:00:00.000Z").add(90, "second").toISOString())
+            .toBe("2026-06-15T10:01:30.000Z");
+    });
+
+    it("subtract seconds", () => {
+        expect(new Badger("2026-06-15T10:01:30.000Z").subtract(90, "second").toISOString())
+            .toBe("2026-06-15T10:00:00.000Z");
+    });
+
+    it("add seconds across minute boundary", () => {
+        expect(new Badger("2026-06-15T10:00:50.000Z").add(15, "second").toISOString())
+            .toBe("2026-06-15T10:01:05.000Z");
+    });
+
+    it("diff in seconds — positive when this > other", () => {
+        const a = new Badger("2026-06-15T10:01:30.000Z");
+        const b = new Badger("2026-06-15T10:00:00.000Z");
+        expect(a.diff(b, "second")).toBe(90);
+    });
+
+    it("diff in seconds — floors partial seconds", () => {
+        const a = new Badger("2026-06-15T10:00:01.999Z");
+        const b = new Badger("2026-06-15T10:00:00.000Z");
+        expect(a.diff(b, "second")).toBe(1);
+    });
+
+    it("startOf('second') zeros milliseconds", () => {
+        const dt = new Badger("2026-06-15T10:30:45.999Z").startOf("second");
+        expect(dt.toISOString()).toBe("2026-06-15T10:30:45.000Z");
+    });
+
+    it("endOf('second') sets ms to 999", () => {
+        const dt = new Badger("2026-06-15T10:30:45.000Z").endOf("second");
+        expect(dt.toISOString()).toBe("2026-06-15T10:30:45.999Z");
     });
 });
 
