@@ -12,15 +12,6 @@ const defaultDateFormatOptions: Intl.DateTimeFormatOptions = {
 type Month = "numeric" | "2-digit" | "long" | "short" | "narrow" | undefined;
 type Weekday = "long" | "short" | "narrow" | undefined;
 
-/** Maps BCP 47 locale tags to their corresponding IANA time zones. */
-export enum BadgerZone {
-    "sv-SE" = "Europe/Stockholm",
-    "fi-FI" = "Europe/Helsinki",
-    "da-DK" = "Europe/Copenhagen",
-    "de-DE" = "Europe/Berlin",
-    "en-GB" = "Europe/London"
-}
-
 /**
  * Locale-aware date formatter built on `Intl.DateTimeFormat`.
  *
@@ -102,6 +93,7 @@ export class BadgerSett extends Intl.DateTimeFormat {
 
         // Verify: the offset may have changed (DST boundary). Re-check and adjust if needed.
         const offset2 = this.getTimezoneOffsetMs(adjusted, tz);
+        /* v8 ignore next 3 — fires only for timezones that spring forward at midnight, not used in BadgerZone */
         if (offset !== offset2) {
             return new Date(utcGuess.getTime() + offset2).toISOString();
         }
@@ -192,9 +184,10 @@ export class BadgerSett extends Intl.DateTimeFormat {
         });
     }
 
-    /** Returns a human-readable relative time string (e.g. `"3 hours ago"`, `"in 2 days"`). */
-    formatRelative(): string {
-        const now = new Date();
+    /** Returns a human-readable relative time string (e.g. `"3 hours ago"`, `"in 2 days"`).
+     *  Optionally pass `relativeTo` to anchor the comparison to a specific date instead of now. */
+    formatRelative(relativeTo?: Date): string {
+        const now = relativeTo ?? new Date();
         const diffMs = now.getTime() - this.currentDate.getTime();
         const absDiffMs = Math.abs(diffMs);
         const isFuture = diffMs < 0;

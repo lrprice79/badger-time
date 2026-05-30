@@ -11,7 +11,7 @@ Replaces `moment` and `date-fns` entirely.
 src/
 ├── Badger.ts       — date engine (arithmetic, comparison, boundaries)
 ├── BadgerSett.ts   — formatter (Intl-based display + backend serialisation)
-└── index.ts        — barrel: exports Badger, BadgerSett, BadgerZone
+└── index.ts        — barrel: exports Badger, BadgerSett
 ```
 
 ---
@@ -142,31 +142,6 @@ bs.getMonthsOfTheYear()   // ["January", …]
 bs.formatForBackend()              // "2026-03-15T10:30:45.000Z"
 bs.formatForBackendToStartOfDay()  // midnight in configured timezone → UTC ISO
 bs.formatForBackendToEndOfDay()    // 23:59:59.999 in configured timezone → UTC ISO
-```
-
----
-
-## BadgerZone
-
-Enum mapping BCP 47 locale tags to IANA timezone strings.
-
-```ts
-BadgerZone["en-GB"]  // "Europe/London"
-BadgerZone["sv-SE"]  // "Europe/Stockholm"
-BadgerZone["fi-FI"]  // "Europe/Helsinki"
-BadgerZone["da-DK"]  // "Europe/Copenhagen"
-BadgerZone["de-DE"]  // "Europe/Berlin"
-```
-
-Use when constructing a `BadgerSett` for a specific locale:
-
-```ts
-new BadgerSett(date, new Intl.Locale("sv-SE"), {
-    timeZone: BadgerZone["sv-SE"],
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-});
 ```
 
 ---

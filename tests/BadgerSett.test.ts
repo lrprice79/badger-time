@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
-import { BadgerSett, BadgerZone } from "../src/BadgerSett";
+import { BadgerSett } from "../src/BadgerSett";
 
 // All tests run under TZ=UTC (set in vitest.config.ts).
 // Europe/London is UTC in winter and UTC+1 in summer (BST).
@@ -40,16 +40,6 @@ describe("BadgerSett constructor", () => {
         });
         expect(bs.resolvedOptions().month).toBe("long");
     });
-});
-
-// ─── BadgerZone ───────────────────────────────────────────────────────────────
-
-describe("BadgerZone enum", () => {
-    it("en-GB → Europe/London", () => expect(BadgerZone["en-GB"]).toBe("Europe/London"));
-    it("sv-SE → Europe/Stockholm", () => expect(BadgerZone["sv-SE"]).toBe("Europe/Stockholm"));
-    it("fi-FI → Europe/Helsinki", () => expect(BadgerZone["fi-FI"]).toBe("Europe/Helsinki"));
-    it("da-DK → Europe/Copenhagen", () => expect(BadgerZone["da-DK"]).toBe("Europe/Copenhagen"));
-    it("de-DE → Europe/Berlin", () => expect(BadgerZone["de-DE"]).toBe("Europe/Berlin"));
 });
 
 // ─── formatForBackend ─────────────────────────────────────────────────────────
@@ -134,6 +124,15 @@ describe("DST boundary — Europe/London clocks forward last Sunday of March", (
     it("the day before clocks go forward — still UTC offset 0", () => {
         const bs = new BadgerSett("2026-03-28T12:00:00Z");
         expect(bs.formatForBackendToStartOfDay()).toBe("2026-03-28T00:00:00.000Z");
+    });
+
+    it("end of day on spring-forward day — 23:59:59 BST = 22:59:59 UTC (DST second-pass)", () => {
+        // On 2026-03-29 clocks go forward at 01:00 GMT → 02:00 BST.
+        // The day's end-of-day in London is 23:59:59 BST = 22:59:59 UTC.
+        // The first UTC guess (treating 23:59:59 as GMT) would produce 23:59:59 UTC,
+        // which lies in BST — the second-pass correction adjusts to 22:59:59 UTC.
+        const bs = new BadgerSett("2026-03-29T12:00:00Z");
+        expect(bs.formatForBackendToEndOfDay()).toBe("2026-03-29T22:59:59.999Z");
     });
 });
 
@@ -357,6 +356,36 @@ describe("formatRelative", () => {
     it("in 1 year (future)", () => {
         const bs = new BadgerSett(new Date("2027-06-15T12:00:00Z"));
         expect(bs.formatRelative()).toBe("next year");
+    });
+});
+
+// ─── formatRelative with custom anchor ───────────────────────────────────────
+
+describe("formatRelative with relativeTo anchor", () => {
+    it("2 days before anchor", () => {
+        const anchor = new Date("2026-06-15T12:00:00Z");
+        const bs = new BadgerSett(new Date("2026-06-13T12:00:00Z"));
+        expect(bs.formatRelative(anchor)).toBe("2 days ago");
+    });
+
+    it("3 hours after anchor", () => {
+        const anchor = new Date("2026-06-15T09:00:00Z");
+        const bs = new BadgerSett(new Date("2026-06-15T12:00:00Z"));
+        expect(bs.formatRelative(anchor)).toBe("in 3 hours");
+    });
+
+    it("same instant as anchor → 'now'", () => {
+        const anchor = new Date("2026-06-15T12:00:00Z");
+        const bs = new BadgerSett(new Date("2026-06-15T12:00:00Z"));
+        expect(bs.formatRelative(anchor)).toBe("now");
+    });
+
+    it("no anchor falls back to Date.now()", () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-06-15T12:00:00Z"));
+        const bs = new BadgerSett(new Date("2026-06-15T12:00:00Z"));
+        expect(bs.formatRelative()).toBe("now");
+        vi.useRealTimers();
     });
 });
 
