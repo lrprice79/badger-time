@@ -117,16 +117,22 @@ new Badger("2026-01-31").add(1, "month").toISOString()
 ### Boundaries
 
 ```ts
-dt.startOf("week")    // Monday 00:00:00.000
+dt.startOf("year")    // 1 Jan, 00:00:00.000
 dt.startOf("quarter") // first day of the quarter, midnight
 dt.startOf("month")   // first of the month, midnight
+dt.startOf("week")    // Monday 00:00:00.000
 dt.startOf("day")     // 00:00:00.000
+dt.startOf("hour")    // zeros minutes, seconds, ms
+dt.startOf("minute")  // zeros seconds and ms
 dt.startOf("second")  // zeros milliseconds
 
-dt.endOf("week")      // Sunday 23:59:59.999
+dt.endOf("year")      // 31 Dec, 23:59:59.999
 dt.endOf("quarter")   // last day of the quarter, 23:59:59.999
 dt.endOf("month")     // last day, 23:59:59.999
+dt.endOf("week")      // Sunday 23:59:59.999
 dt.endOf("day")       // 23:59:59.999
+dt.endOf("hour")      // sets minutes, seconds, ms to max
+dt.endOf("minute")    // sets seconds to 59, ms to 999
 dt.endOf("second")    // sets ms to 999
 ```
 

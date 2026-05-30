@@ -93,7 +93,7 @@ export class BadgerSett extends Intl.DateTimeFormat {
 
         // Verify: the offset may have changed (DST boundary). Re-check and adjust if needed.
         const offset2 = this.getTimezoneOffsetMs(adjusted, tz);
-        /* v8 ignore next 3 — fires only for timezones that spring forward at midnight, not used in BadgerZone */
+        /* v8 ignore next 3 — fires only for timezones that spring forward at midnight */
         if (offset !== offset2) {
             return new Date(utcGuess.getTime() + offset2).toISOString();
         }
