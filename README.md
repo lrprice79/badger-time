@@ -258,13 +258,13 @@ Locale-aware formatter built on `Intl.DateTimeFormat`. Defaults to `en-GB` / `Eu
 ### Construction
 
 ```ts
-import { BadgerSett, BadgerZone } from "badger-time";
+import { BadgerSett } from "badger-time";
 
 new BadgerSett()                                             // now, en-GB, London
 new BadgerSett(someDate)
 new BadgerSett(someDate, new Intl.Locale("sv-SE"))
 new BadgerSett(someDate, new Intl.Locale("sv-SE"), {        // full control
-    timeZone: BadgerZone["sv-SE"],
+    timeZone: "Europe/Stockholm",
     year: "numeric",
     month: "2-digit",
     day: "2-digit"
@@ -301,20 +301,6 @@ bs.formatForBackendToEndOfDay()    // 23:59:59.999 in the configured timezone �
 ```
 
 Start/end-of-day conversion is **DST-safe** — it resolves the correct UTC offset for that specific calendar date, including dates that fall on a DST boundary.
-
----
-
-## BadgerZone
-
-Typed enum mapping BCP 47 locale tags to IANA timezone strings. IDE-autocomplete friendly.
-
-```ts
-BadgerZone["en-GB"]  // "Europe/London"
-BadgerZone["sv-SE"]  // "Europe/Stockholm"
-BadgerZone["fi-FI"]  // "Europe/Helsinki"
-BadgerZone["da-DK"]  // "Europe/Copenhagen"
-BadgerZone["de-DE"]  // "Europe/Berlin"
-```
 
 ---
 
@@ -357,7 +343,6 @@ new BadgerSett(
 | Native `Intl` i18n (no locale bundles) | ✗ | ✗ | ✅ |
 | DST-safe start/end of day → UTC | ✗ | via date-fns-tz | ✅ |
 | Local wall-clock factory | ✗ | ✗ | ✅ |
-| Typed timezone enum | ✗ | ✗ | ✅ |
 | Fractional diffs | ✅ | ✅ | ✅ |
 | Inclusive range bounds | ✅ | partial | ✅ |
 
