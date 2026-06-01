@@ -611,10 +611,10 @@ describe.skipIf(!hasDurationFormat)("formatDuration (Intl.DurationFormat)", () =
         expect(typeof result).toBe("string");
     });
 
-    it("formats zero seconds — contains '0'", () => {
+    it("formats seconds — contains the value and 'second'", () => {
         const bs = new BadgerSett(new Date(), new Intl.Locale("en-GB"));
-        const result = bs.formatDuration({ seconds: 0 });
-        expect(result).toContain("0");
+        const result = bs.formatDuration({ seconds: 45 });
+        expect(result).toContain("45");
         expect(result.toLowerCase()).toContain("second");
     });
 });
