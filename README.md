@@ -347,15 +347,16 @@ new BadgerSett(
 
 ## Why badger-time?
 
-| | moment | date-fns | badger-time |
-|---|:---:|:---:|:---:|
-| Zero runtime dependencies | ✗ | ✗ | ✅ |
-| Immutable API | ✗ | ✅ | ✅ |
-| Native `Intl` i18n (no locale bundles) | ✗ | ✗ | ✅ |
-| DST-safe start/end of day → UTC | ✗ | via date-fns-tz | ✅ |
-| Local wall-clock factory | ✗ | ✗ | ✅ |
-| Fractional diffs | ✅ | ✅ | ✅ |
-| Inclusive range bounds | ✅ | partial | ✅ |
+| | moment | date-fns | luxon | badger-time |
+|---|:---:|:---:|:---:|:---:|
+| Zero runtime dependencies | ✗ | ✗ | ✅ | ✅ |
+| Immutable API | ✗ | ✅ | ✅ | ✅ |
+| Native `Intl` i18n (no locale bundles) | ✗ | ✗ | ✅ | ✅ |
+| DST-safe start/end of day → UTC | ✗ | via date-fns-tz | ✅ | ✅ |
+| Local wall-clock factory | ✗ | ✗ | ✅ | ✅ |
+| Fractional diffs | ✅ | ✅ | ✅ | ✅ |
+| Inclusive range bounds | ✅ | partial | ✗ | ✅ |
+| Bundle size (min+gzip) | ~72 KB | ~14 KB | ~23 KB | < 5 KB |
 
 ---
 
