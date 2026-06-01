@@ -201,6 +201,55 @@ export class BadgerSett extends Intl.DateTimeFormat {
         });
     }
 
+    /**
+     * Returns `true` if `currentDate` falls on a weekend day as defined by the
+     * configured locale's `weekInfo.weekend` (e.g. Fri+Sat for `ar-SA`).
+     * Falls back to Saturday+Sunday when `weekInfo` is unavailable.
+     */
+    isWeekend(): boolean {
+        const locObj = new Intl.Locale(this.resolvedOptions().locale);
+        /* v8 ignore next 1 */
+        const weekend: number[] = (locObj as any).weekInfo?.weekend ?? [6, 7];
+        // JS getUTCDay: 0=Sun…6=Sat → ISO: Sun=7, else same
+        const jsDay = this.currentDate.getUTCDay();
+        const isoDay = jsDay === 0 ? 7 : jsDay;
+        return weekend.includes(isoDay);
+    }
+
+    /**
+     * Returns a new `Date` at UTC midnight of the first day of the week
+     * for the configured locale (e.g. Sunday for `en-US`, Monday for `en-GB`).
+     */
+    startOfWeek(): Date {
+        const locObj = new Intl.Locale(this.resolvedOptions().locale);
+        /* v8 ignore next 1 */
+        const firstDay: number = (locObj as any).weekInfo?.firstDay ?? 1;
+        // weekInfo firstDay: 1=Mon…7=Sun → JS: Sun=0, else same as ISO
+        const jsFirstDay = firstDay === 7 ? 0 : firstDay;
+        const jsDay = this.currentDate.getUTCDay();
+        const daysBack = (jsDay - jsFirstDay + 7) % 7;
+        const result = new Date(this.currentDate);
+        result.setUTCDate(result.getUTCDate() - daysBack);
+        result.setUTCHours(0, 0, 0, 0);
+        return result;
+    }
+
+    /**
+     * Formats a duration object using `Intl.DurationFormat` in the configured locale.
+     * Throws if `Intl.DurationFormat` is unavailable (Node < 24, older browsers).
+     *
+     * @example
+     * bs.formatDuration({ hours: 3, minutes: 22 }) // "3 hours and 22 minutes"
+     */
+    /* v8 ignore next 8 — Intl.DurationFormat only available in Node 24+; covered by CI */
+    formatDuration(duration: Record<string, number>): string {
+        const DurationFormat = (Intl as any).DurationFormat;
+        if (!DurationFormat) {
+            throw new Error("Intl.DurationFormat is not supported in this environment");
+        }
+        return new DurationFormat(this.resolvedOptions().locale, { style: "long" }).format(duration);
+    }
+
     /** Returns a human-readable relative time string (e.g. `"3 hours ago"`, `"in 2 days"`).
      *  Optionally pass `relativeTo` to anchor the comparison to a specific date instead of now.
      *  Month and year thresholds are calendar-based, not approximated. */

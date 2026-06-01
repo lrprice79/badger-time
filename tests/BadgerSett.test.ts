@@ -483,3 +483,128 @@ const defaultStockholmOpts: Intl.DateTimeFormatOptions = {
     hour12: false,
     timeZone: "Europe/Stockholm"
 };
+
+// ─── isWeekend (locale-aware) ─────────────────────────────────────────────────
+// June 2026 reference dates (all UTC):
+//   Fri Jun 5, Sat Jun 6, Sun Jun 7, Wed Jun 10
+//
+// weekInfo day numbers are ISO: 1=Mon … 7=Sun
+// en-GB weekend: [6, 7] (Sat, Sun)
+// ar-SA weekend: [5, 6] (Fri, Sat) — Sunday is a workday
+
+describe("isWeekend (locale-aware)", () => {
+    it("Saturday is a weekend day in en-GB", () => {
+        const bs = new BadgerSett(new Date("2026-06-06T12:00:00Z"), new Intl.Locale("en-GB"));
+        expect(bs.isWeekend()).toBe(true);
+    });
+
+    it("Friday is not a weekend day in en-GB", () => {
+        const bs = new BadgerSett(new Date("2026-06-05T12:00:00Z"), new Intl.Locale("en-GB"));
+        expect(bs.isWeekend()).toBe(false);
+    });
+
+    it("Sunday is a weekend day in en-GB", () => {
+        const bs = new BadgerSett(new Date("2026-06-07T12:00:00Z"), new Intl.Locale("en-GB"));
+        expect(bs.isWeekend()).toBe(true);
+    });
+
+    it("Friday is a weekend day in ar-SA", () => {
+        const bs = new BadgerSett(new Date("2026-06-05T12:00:00Z"), new Intl.Locale("ar-SA"));
+        expect(bs.isWeekend()).toBe(true);
+    });
+
+    it("Saturday is a weekend day in ar-SA", () => {
+        const bs = new BadgerSett(new Date("2026-06-06T12:00:00Z"), new Intl.Locale("ar-SA"));
+        expect(bs.isWeekend()).toBe(true);
+    });
+
+    it("Sunday is NOT a weekend day in ar-SA", () => {
+        const bs = new BadgerSett(new Date("2026-06-07T12:00:00Z"), new Intl.Locale("ar-SA"));
+        expect(bs.isWeekend()).toBe(false);
+    });
+
+    it("Wednesday is not a weekend day in any locale", () => {
+        const enGb = new BadgerSett(new Date("2026-06-10T12:00:00Z"), new Intl.Locale("en-GB"));
+        const arSa = new BadgerSett(new Date("2026-06-10T12:00:00Z"), new Intl.Locale("ar-SA"));
+        expect(enGb.isWeekend()).toBe(false);
+        expect(arSa.isWeekend()).toBe(false);
+    });
+});
+
+// ─── startOfWeek (locale-aware) ───────────────────────────────────────────────
+// Returns a Date at UTC midnight of the first day of the locale's week.
+//
+// en-GB firstDay: 1 (Monday)
+// en-US firstDay: 7 (Sunday)
+//
+// Wed Jun 10 → en-GB: Mon Jun 8 | en-US: Sun Jun 7
+// Mon Jun 8  → en-GB: Mon Jun 8 (already the start)
+// Sun Jun 7  → en-US: Sun Jun 7 (already the start)
+// Sun Jun 7  → en-GB: Mon Jun 1 (Sunday belongs to the previous week)
+
+describe("startOfWeek (locale-aware)", () => {
+    it("Wednesday → Monday for en-GB (Mon start)", () => {
+        const bs = new BadgerSett(new Date("2026-06-10T12:00:00Z"), new Intl.Locale("en-GB"));
+        expect(bs.startOfWeek().toISOString()).toBe("2026-06-08T00:00:00.000Z");
+    });
+
+    it("Wednesday → Sunday for en-US (Sun start)", () => {
+        const bs = new BadgerSett(new Date("2026-06-10T12:00:00Z"), new Intl.Locale("en-US"));
+        expect(bs.startOfWeek().toISOString()).toBe("2026-06-07T00:00:00.000Z");
+    });
+
+    it("Monday itself is the start for en-GB", () => {
+        const bs = new BadgerSett(new Date("2026-06-08T12:00:00Z"), new Intl.Locale("en-GB"));
+        expect(bs.startOfWeek().toISOString()).toBe("2026-06-08T00:00:00.000Z");
+    });
+
+    it("Sunday itself is the start for en-US", () => {
+        const bs = new BadgerSett(new Date("2026-06-07T12:00:00Z"), new Intl.Locale("en-US"));
+        expect(bs.startOfWeek().toISOString()).toBe("2026-06-07T00:00:00.000Z");
+    });
+
+    it("Sunday belongs to the previous week for en-GB", () => {
+        // Jun 7 (Sun) → week started Mon Jun 1
+        const bs = new BadgerSett(new Date("2026-06-07T12:00:00Z"), new Intl.Locale("en-GB"));
+        expect(bs.startOfWeek().toISOString()).toBe("2026-06-01T00:00:00.000Z");
+    });
+
+    it("time-of-day is stripped — result is always midnight UTC", () => {
+        const bs = new BadgerSett(new Date("2026-06-10T23:59:59.999Z"), new Intl.Locale("en-GB"));
+        expect(bs.startOfWeek().toISOString()).toBe("2026-06-08T00:00:00.000Z");
+    });
+});
+
+// ─── formatDuration (locale-aware, Intl.DurationFormat) ──────────────────────
+// Skipped when Intl.DurationFormat is unavailable (Node < 24, older browsers).
+
+const hasDurationFormat = typeof (Intl as any).DurationFormat === "function";
+
+describe.skipIf(!hasDurationFormat)("formatDuration (Intl.DurationFormat)", () => {
+    it("formats a single hour in en-GB", () => {
+        const bs = new BadgerSett(new Date(), new Intl.Locale("en-GB"));
+        expect(bs.formatDuration({ hours: 1 })).toBe("1 hour");
+    });
+
+    it("formats hours and minutes in en-GB", () => {
+        const bs = new BadgerSett(new Date(), new Intl.Locale("en-GB"));
+        expect(bs.formatDuration({ hours: 3, minutes: 22 })).toBe("3 hours and 22 minutes");
+    });
+
+    it("formats in de-DE locale", () => {
+        const bs = new BadgerSett(new Date(), new Intl.Locale("de-DE"));
+        const result = bs.formatDuration({ hours: 2, minutes: 30 });
+        expect(result).toBeTruthy();
+        expect(typeof result).toBe("string");
+    });
+
+    it("formats days and hours", () => {
+        const bs = new BadgerSett(new Date(), new Intl.Locale("en-GB"));
+        expect(bs.formatDuration({ days: 2, hours: 4 })).toBe("2 days and 4 hours");
+    });
+
+    it("formats zero duration as zero seconds", () => {
+        const bs = new BadgerSett(new Date(), new Intl.Locale("en-GB"));
+        expect(bs.formatDuration({ seconds: 0 })).toBe("0 seconds");
+    });
+});

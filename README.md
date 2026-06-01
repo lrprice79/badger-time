@@ -296,6 +296,50 @@ bs.getDaysOfTheWeek()     // ["Monday", …, "Sunday"]  — starts from locale's
 bs.getMonthsOfTheYear()   // ["January", …, "December"]
 ```
 
+### Locale-aware calendar
+
+`isWeekend()` and `startOfWeek()` use the locale's `weekInfo` — no hardcoded Saturday/Sunday assumptions.
+
+```ts
+// Saudi Arabia: Friday and Saturday are the weekend
+const bs = new BadgerSett(new Date(), new Intl.Locale("ar-SA"));
+bs.isWeekend()    // true on Friday or Saturday, false on Sunday
+
+// en-US weeks start on Sunday; en-GB weeks start on Monday
+const us = new BadgerSett(new Date("2026-06-10T12:00:00Z"), new Intl.Locale("en-US"));
+us.startOfWeek()  // Date → 2026-06-07T00:00:00.000Z  (Sunday)
+
+const gb = new BadgerSett(new Date("2026-06-10T12:00:00Z"), new Intl.Locale("en-GB"));
+gb.startOfWeek()  // Date → 2026-06-08T00:00:00.000Z  (Monday)
+```
+
+`startOfWeek()` returns a `Date` at UTC midnight of the first day of the week.
+
+### Duration formatting
+
+`formatDuration()` uses `Intl.DurationFormat` to produce a locale-aware human-readable duration string. No hand-rolled formatting — the platform does it.
+
+> Requires `Intl.DurationFormat` (Node ≥ 24, Chrome 127+, Firefox 127+, Safari 17.4+). Throws in older environments.
+
+```ts
+const bs = new BadgerSett(new Date(), new Intl.Locale("en-GB"));
+
+bs.formatDuration({ hours: 3, minutes: 22 })    // "3 hours and 22 minutes"
+bs.formatDuration({ days: 1, hours: 4 })         // "1 day and 4 hours"
+bs.formatDuration({ hours: 1 })                  // "1 hour"
+
+const de = new BadgerSett(new Date(), new Intl.Locale("de-DE"));
+de.formatDuration({ hours: 2, minutes: 30 })     // "2 Stunden und 30 Minuten"
+```
+
+Pair it with `diff()` to go straight from two dates to a display string:
+
+```ts
+const elapsed = new Badger(startTime).diff(new Badger(), "minute");
+new BadgerSett(new Date(), new Intl.Locale("en-GB")).formatDuration({ minutes: elapsed });
+// "47 minutes"
+```
+
 ### Relative time
 
 ```ts
@@ -341,6 +385,16 @@ new BadgerSett(
     new Badger(openingHour).toDate(),
     new Intl.Locale("sv-SE")
 ).formatTimeOnly();
+
+// Is today a day off? Respects locale-defined weekends (e.g. Fri+Sat in ar-SA)
+new BadgerSett(new Date(), userLocale).isWeekend();
+
+// Start of the current week for a locale-aware calendar view
+new BadgerSett(new Date(), userLocale).startOfWeek();
+
+// Human-readable elapsed time (Node 24+ / modern browsers)
+const minutes = new Badger(orderPlacedAt).diff(new Badger(), "minute");
+new BadgerSett(new Date(), new Intl.Locale("en-GB")).formatDuration({ minutes });
 ```
 
 ---
@@ -356,6 +410,9 @@ new BadgerSett(
 | Local wall-clock factory | ✗ | ✗ | ✅ | ✅ |
 | Fractional diffs | ✅ | ✅ | ✅ | ✅ |
 | Inclusive range bounds | ✅ | partial | ✗ | ✅ |
+| Locale-aware weekend (`weekInfo`) | ✗ | ✗ | ✗ | ✅ |
+| Locale-aware week start (`weekInfo`) | ✗ | ✗ | ✗ | ✅ |
+| Native duration formatting (`Intl.DurationFormat`) | ✗ | ✗ | ✗ | ✅ |
 | Bundle size (min+gzip) | ~72 KB | ~14 KB | ~23 KB | < 5 KB |
 
 ---
