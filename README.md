@@ -16,15 +16,36 @@ yarn add badger-time
 
 ## Overview
 
-badger-time exposes three named exports:
+badger-time exposes three named exports and two TypeScript types:
 
-| Export | Purpose |
-|---|---|
-| `Badger(date?)` | Date arithmetic, comparison, and boundary operations |
-| `Sett(date?, locale?, options?)` | Locale-aware formatting, calendar helpers, and duration display |
-| `BadgerSettings` | Global locale and timezone defaults with reactive subscriber support |
+| Export | Kind | Purpose |
+|---|---|---|
+| `Badger(date?)` | factory | Date arithmetic, comparison, and boundary operations |
+| `Sett(date?, locale?, options?)` | factory | Locale-aware formatting, calendar helpers, and duration display |
+| `BadgerSettings` | class | Global locale and timezone defaults with reactive subscriber support |
+| `BadgerInstance` | type | TypeScript type for values returned by `Badger()` |
+| `BadgerSettInstance` | type | TypeScript type for values returned by `Sett()` |
 
 No `new` required. All `Badger` methods return a **new instance** — the original is never mutated.
+
+### TypeScript usage
+
+```ts
+import { Badger, Sett } from "badger-time";
+import type { BadgerInstance, BadgerSettInstance } from "badger-time";
+
+// Annotate variables
+const dt: BadgerInstance = Badger("2026-06-15");
+
+// Annotate function parameters and return types
+function addBusinessDays(date: BadgerInstance, days: number): BadgerInstance {
+    return date.add(days, "day");
+}
+
+function formatForDisplay(date: BadgerInstance): BadgerSettInstance {
+    return Sett(date.toDate());
+}
+```
 
 ---
 
