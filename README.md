@@ -1,6 +1,6 @@
 # badger-time
 
-> Lightweight date engine and formatter. Zero runtime dependencies. No moment. No date-fns.
+> Lightweight date engine and formatter. Zero runtime dependencies. Immutable API. Native `Intl` throughout — no locale bundles, no bloat.
 
 ---
 
@@ -14,12 +14,13 @@ npm install badger-time
 
 ## Overview
 
-badger-time ships two classes:
+badger-time ships three exports:
 
-| Class | Purpose |
+| Export | Purpose |
 |---|---|
-| `Badger` | Immutable-style date arithmetic, comparison, and boundary operations |
-| `BadgerSett` | Locale-aware formatting built on `Intl.DateTimeFormat` |
+| `Badger` | Immutable date arithmetic, comparison, and boundary operations |
+| `BadgerSett` | Locale-aware formatting, calendar helpers, and duration display |
+| `BadgerSettings` | Global locale and timezone defaults with reactive subscriber support |
 
 All `Badger` methods return a **new instance** — the original is never mutated.
 
@@ -264,14 +265,14 @@ dt.isLeapYear()
 
 ## BadgerSett
 
-Locale-aware formatter built on `Intl.DateTimeFormat`. Defaults to `en-GB` / `Europe/London`.
+Locale-aware formatter built on `Intl.DateTimeFormat`. Defaults to `en-GB` / `Europe/London` unless overridden via `BadgerSettings`.
 
 ### Construction
 
 ```ts
 import { BadgerSett } from "badger-time";
 
-new BadgerSett()                                             // now, en-GB, London
+new BadgerSett()                                             // now, global defaults or en-GB / London
 new BadgerSett(someDate)
 new BadgerSett(someDate, new Intl.Locale("sv-SE"))
 new BadgerSett(someDate, new Intl.Locale("sv-SE"), {        // full control
@@ -359,6 +360,185 @@ Start/end-of-day conversion is **DST-safe** — it resolves the correct UTC offs
 
 ---
 
+## BadgerSettings
+
+Global defaults for locale and timezone. Set once at app startup — every `BadgerSett` instance created without an explicit locale will inherit these values automatically.
+
+### Basic usage
+
+```ts
+import { BadgerSettings } from "badger-time";
+
+// Set at app startup — all subsequent BadgerSett instances pick this up
+BadgerSettings.defaultLocale   = new Intl.Locale("sv-SE");
+BadgerSettings.defaultTimeZone = "Europe/Stockholm";
+
+// No locale arg needed anywhere in the app
+new BadgerSett(order.deliveryTime).formatDate();   // formatted in sv-SE / Stockholm
+new BadgerSett(order.deliveryTime).isWeekend();    // uses sv-SE weekInfo
+new BadgerSett(order.deliveryTime).startOfWeek();  // week starts per sv-SE
+```
+
+An explicit locale passed to the constructor always wins:
+
+```ts
+BadgerSettings.defaultLocale = new Intl.Locale("sv-SE");
+
+new BadgerSett(date, new Intl.Locale("fr-FR")).formatDate();
+// → fr-FR (explicit arg overrides the global)
+```
+
+### `setLocale()` + `subscribe()` — reactive language switching
+
+`setLocale()` updates the global locale **and** notifies every active subscriber. This is the pattern for a language switcher — one call ripples out to every part of the UI that's subscribed.
+
+`subscribe()` returns an unsubscribe function. Call it on cleanup to prevent memory leaks.
+
+```ts
+// Register a subscriber — fires whenever setLocale() is called
+const unsub = BadgerSettings.subscribe(locale => {
+    console.log("Locale changed to", locale.baseName);
+});
+
+BadgerSettings.setLocale(new Intl.Locale("fr-FR"));
+// → "Locale changed to fr-FR"
+
+// Stop listening
+unsub();
+```
+
+### React Native
+
+Wire `BadgerSettings` into a context so every component re-renders automatically when the user switches language:
+
+```tsx
+// localeContext.tsx
+import { createContext, useContext, useState, useEffect } from "react";
+import { BadgerSettings } from "badger-time";
+
+const LocaleContext = createContext<Intl.Locale>(new Intl.Locale("en-GB"));
+
+export function LocaleProvider({ children }) {
+    const [locale, setLocale] = useState(
+        BadgerSettings.defaultLocale ?? new Intl.Locale("en-GB")
+    );
+
+    useEffect(() => {
+        // Returns the unsubscribe function — React calls it on unmount automatically
+        return BadgerSettings.subscribe(setLocale);
+    }, []);
+
+    return (
+        <LocaleContext.Provider value={locale}>
+            {children}
+        </LocaleContext.Provider>
+    );
+}
+
+export const useLocale = () => useContext(LocaleContext);
+```
+
+```tsx
+// SettingsScreen.tsx — language switcher
+import { BadgerSettings } from "badger-time";
+
+function LanguageSwitcher() {
+    return (
+        <Button
+            title="Switch to French"
+            onPress={() => BadgerSettings.setLocale(new Intl.Locale("fr-FR"))}
+        />
+    );
+}
+```
+
+```tsx
+// OrderCard.tsx — any component that displays dates
+import { BadgerSett } from "badger-time";
+import { useLocale } from "./localeContext";
+
+function OrderCard({ order }) {
+    const locale = useLocale(); // re-renders when locale changes
+
+    const formatted = new BadgerSett(order.deliveryTime, locale).formatDate();
+    const relative  = new BadgerSett(order.deliveryTime, locale).formatRelative();
+
+    return (
+        <View>
+            <Text>{formatted}</Text>
+            <Text>{relative}</Text>
+        </View>
+    );
+}
+```
+
+One `BadgerSettings.setLocale()` call in the settings screen — every `OrderCard`, every date label in the app, updates automatically.
+
+### React (web)
+
+The same pattern works in a React web app:
+
+```tsx
+// App.tsx
+import { useEffect } from "react";
+import { BadgerSettings } from "badger-time";
+
+export default function App() {
+    useEffect(() => {
+        // Initialise from the user's saved preference
+        const saved = localStorage.getItem("locale");
+        if (saved) BadgerSettings.setLocale(new Intl.Locale(saved));
+    }, []);
+
+    return <LocaleProvider><AppRoutes /></LocaleProvider>;
+}
+```
+
+### Vue
+
+```ts
+// locale.ts
+import { ref } from "vue";
+import { BadgerSettings } from "badger-time";
+
+export const appLocale = ref(new Intl.Locale("en-GB"));
+
+BadgerSettings.subscribe(locale => {
+    appLocale.value = locale;
+});
+```
+
+```ts
+// In any component
+import { appLocale } from "./locale";
+import { BadgerSett } from "badger-time";
+
+const formatted = computed(() =>
+    new BadgerSett(order.deliveryTime, appLocale.value).formatDate()
+);
+```
+
+### Vanilla JS
+
+```ts
+BadgerSettings.subscribe(locale => {
+    document.querySelectorAll<HTMLElement>("[data-timestamp]").forEach(el => {
+        const ts = el.dataset.timestamp!;
+        el.textContent = new BadgerSett(new Date(ts), locale).formatRelative();
+    });
+});
+```
+
+### `reset()`
+
+Clears the global locale, timezone, and all subscribers. Useful in tests to prevent state leaking between cases.
+
+```ts
+BadgerSettings.reset();
+```
+
+---
+
 ## Common patterns
 
 ```ts
@@ -413,6 +593,7 @@ new BadgerSett(new Date(), new Intl.Locale("en-GB")).formatDuration({ minutes })
 | Locale-aware weekend (`weekInfo`) | ✗ | ✗ | ✗ | ✅ |
 | Locale-aware week start (`weekInfo`) | ✗ | ✗ | ✗ | ✅ |
 | Native duration formatting (`Intl.DurationFormat`) | ✗ | ✗ | ✗ | ✅ |
+| Reactive global locale (`subscribe`) | ✗ | ✗ | ✗ | ✅ |
 | Bundle size (min+gzip) | ~72 KB | ~14 KB | ~23 KB | < 5 KB |
 
 ---

@@ -1,3 +1,5 @@
+import { BadgerSettings } from "./BadgerSettings";
+
 const defaultDateFormatOptions: Intl.DateTimeFormatOptions = {
     year: "numeric",
     month: "2-digit",
@@ -35,7 +37,13 @@ export class BadgerSett extends Intl.DateTimeFormat {
      * @param options - `Intl.DateTimeFormatOptions` override.
      */
     constructor(date?: Date | string, locale?: Intl.Locale, options?: Intl.DateTimeFormatOptions) {
-        super(locale ? locale.baseName : "en-GB", options ? options : defaultDateFormatOptions);
+        const resolvedLocale = locale ?? BadgerSettings.defaultLocale ?? new Intl.Locale("en-GB");
+        const resolvedOptions = options ?? (
+            BadgerSettings.defaultTimeZone
+                ? { ...defaultDateFormatOptions, timeZone: BadgerSettings.defaultTimeZone }
+                : defaultDateFormatOptions
+        );
+        super(resolvedLocale.baseName, resolvedOptions);
         this.currentDate = date ? new Date(date) : new Date();
     }
 

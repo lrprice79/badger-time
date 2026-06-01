@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { BadgerSett } from "../src/BadgerSett";
+import { BadgerSettings } from "../src/BadgerSettings";
 
 // All tests run under TZ=UTC (set in vitest.config.ts).
 // Europe/London is UTC in winter and UTC+1 in summer (BST).
@@ -616,5 +617,166 @@ describe.skipIf(!hasDurationFormat)("formatDuration (Intl.DurationFormat)", () =
         const result = bs.formatDuration({ seconds: 45 });
         expect(result).toContain("45");
         expect(result.toLowerCase()).toContain("second");
+    });
+});
+
+// ─── BadgerSettings global defaults ──────────────────────────────────────────
+// BadgerSettings is reset after each test so global state never leaks.
+
+describe("BadgerSettings", () => {
+    afterEach(() => {
+        BadgerSettings.reset();
+    });
+
+    it("default locale is en-GB when nothing is set", () => {
+        const bs = new BadgerSett();
+        expect(bs.resolvedOptions().locale).toBe("en-GB");
+    });
+
+    it("defaultLocale is used by BadgerSett when no locale arg is passed", () => {
+        BadgerSettings.defaultLocale = new Intl.Locale("sv-SE");
+        const bs = new BadgerSett();
+        expect(bs.resolvedOptions().locale).toBe("sv-SE");
+    });
+
+    it("explicit locale arg overrides defaultLocale", () => {
+        BadgerSettings.defaultLocale = new Intl.Locale("sv-SE");
+        const bs = new BadgerSett(new Date(), new Intl.Locale("de-DE"));
+        expect(bs.resolvedOptions().locale).toBe("de-DE");
+    });
+
+    it("defaultTimeZone is used by BadgerSett when no options arg is passed", () => {
+        BadgerSettings.defaultTimeZone = "America/New_York";
+        const bs = new BadgerSett();
+        expect(bs.resolvedOptions().timeZone).toBe("America/New_York");
+    });
+
+    it("explicit options arg overrides defaultTimeZone", () => {
+        BadgerSettings.defaultTimeZone = "America/New_York";
+        const bs = new BadgerSett(new Date(), undefined, {
+            timeZone: "Asia/Tokyo",
+            year: "numeric", month: "2-digit", day: "2-digit",
+            hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+        });
+        expect(bs.resolvedOptions().timeZone).toBe("Asia/Tokyo");
+    });
+
+    it("reset() restores en-GB and Europe/London defaults", () => {
+        BadgerSettings.defaultLocale = new Intl.Locale("ja-JP");
+        BadgerSettings.defaultTimeZone = "Asia/Tokyo";
+        BadgerSettings.reset();
+        const bs = new BadgerSett();
+        expect(bs.resolvedOptions().locale).toBe("en-GB");
+        expect(bs.resolvedOptions().timeZone).toBe("Europe/London");
+    });
+
+    it("isWeekend() on BadgerSett uses defaultLocale weekInfo", () => {
+        // ar-SA: Friday is a weekend day
+        BadgerSettings.defaultLocale = new Intl.Locale("ar-SA");
+        const bs = new BadgerSett(new Date("2026-06-05T12:00:00Z")); // Friday
+        expect(bs.isWeekend()).toBe(true);
+    });
+
+    it("startOfWeek() on BadgerSett uses defaultLocale week start", () => {
+        // en-US: week starts Sunday — Wed Jun 10 → Sun Jun 7
+        BadgerSettings.defaultLocale = new Intl.Locale("en-US");
+        const bs = new BadgerSett(new Date("2026-06-10T12:00:00Z"));
+        expect(bs.startOfWeek().toISOString()).toBe("2026-06-07T00:00:00.000Z");
+    });
+});
+
+// ─── BadgerSettings.setLocale + subscribe ─────────────────────────────────────
+// setLocale() updates defaultLocale AND notifies all active subscribers.
+// subscribe() returns an unsubscribe function for cleanup.
+// reset() clears the locale AND removes all subscribers.
+
+describe("BadgerSettings.subscribe", () => {
+    afterEach(() => {
+        BadgerSettings.reset();
+    });
+
+    it("setLocale() updates defaultLocale", () => {
+        BadgerSettings.setLocale(new Intl.Locale("fr-FR"));
+        expect(BadgerSettings.defaultLocale?.baseName).toBe("fr-FR");
+    });
+
+    it("setLocale() causes new BadgerSett instances to use the new locale", () => {
+        BadgerSettings.setLocale(new Intl.Locale("fr-FR"));
+        const bs = new BadgerSett();
+        expect(bs.resolvedOptions().locale).toBe("fr-FR");
+    });
+
+    it("subscriber is called when setLocale() is called", () => {
+        const calls: string[] = [];
+        BadgerSettings.subscribe(locale => calls.push(locale.baseName));
+
+        BadgerSettings.setLocale(new Intl.Locale("fr-FR"));
+
+        expect(calls).toEqual(["fr-FR"]);
+    });
+
+    it("subscriber receives the new locale", () => {
+        let received: Intl.Locale | null = null;
+        BadgerSettings.subscribe(locale => { received = locale; });
+
+        BadgerSettings.setLocale(new Intl.Locale("de-DE"));
+
+        expect(received!.baseName).toBe("de-DE");
+    });
+
+    it("multiple subscribers all get called", () => {
+        const calls: string[] = [];
+        BadgerSettings.subscribe(locale => calls.push("a:" + locale.baseName));
+        BadgerSettings.subscribe(locale => calls.push("b:" + locale.baseName));
+
+        BadgerSettings.setLocale(new Intl.Locale("ja-JP"));
+
+        expect(calls).toContain("a:ja-JP");
+        expect(calls).toContain("b:ja-JP");
+    });
+
+    it("unsubscribe() stops the callback from firing", () => {
+        const calls: string[] = [];
+        const unsub = BadgerSettings.subscribe(locale => calls.push(locale.baseName));
+
+        BadgerSettings.setLocale(new Intl.Locale("fr-FR"));
+        unsub();
+        BadgerSettings.setLocale(new Intl.Locale("de-DE"));
+
+        expect(calls).toEqual(["fr-FR"]); // de-DE switch not received
+    });
+
+    it("unsubscribing one does not affect other subscribers", () => {
+        const a: string[] = [];
+        const b: string[] = [];
+        const unsubA = BadgerSettings.subscribe(locale => a.push(locale.baseName));
+        BadgerSettings.subscribe(locale => b.push(locale.baseName));
+
+        BadgerSettings.setLocale(new Intl.Locale("fr-FR"));
+        unsubA();
+        BadgerSettings.setLocale(new Intl.Locale("de-DE"));
+
+        expect(a).toEqual(["fr-FR"]);
+        expect(b).toEqual(["fr-FR", "de-DE"]);
+    });
+
+    it("reset() clears subscribers — setLocale after reset does not trigger old callbacks", () => {
+        const calls: string[] = [];
+        BadgerSettings.subscribe(locale => calls.push(locale.baseName));
+
+        BadgerSettings.reset();
+        BadgerSettings.setLocale(new Intl.Locale("fr-FR"));
+
+        expect(calls).toEqual([]);
+    });
+
+    it("subscribing after reset() works normally", () => {
+        BadgerSettings.reset();
+        const calls: string[] = [];
+        BadgerSettings.subscribe(locale => calls.push(locale.baseName));
+
+        BadgerSettings.setLocale(new Intl.Locale("sv-SE"));
+
+        expect(calls).toEqual(["sv-SE"]);
     });
 });
