@@ -22,7 +22,8 @@
     "build:obfuscate": "node scripts/obfuscate.mjs",
     "prepublishOnly": "npm run build",
     "test": "TZ=UTC vitest run --coverage",
-    "test:watch": "TZ=UTC vitest"
+    "test:watch": "TZ=UTC vitest",
+    "test:cet": "TZ=Europe/Berlin vitest run --config vitest.cet.config.mts"
   },
   "keywords": [
     "date",
