@@ -14,15 +14,15 @@ npm install badger-time
 
 ## Overview
 
-badger-time ships three exports:
+badger-time exposes three named exports:
 
 | Export | Purpose |
 |---|---|
-| `Badger` | Immutable date arithmetic, comparison, and boundary operations |
-| `BadgerSett` | Locale-aware formatting, calendar helpers, and duration display |
+| `Badger(date?)` | Date arithmetic, comparison, and boundary operations |
+| `Sett(date?, locale?, options?)` | Locale-aware formatting, calendar helpers, and duration display |
 | `BadgerSettings` | Global locale and timezone defaults with reactive subscriber support |
 
-All `Badger` methods return a **new instance** — the original is never mutated.
+No `new` required. All `Badger` methods return a **new instance** — the original is never mutated.
 
 ---
 
@@ -33,11 +33,11 @@ All `Badger` methods return a **new instance** — the original is never mutated
 ```ts
 import { Badger } from "badger-time";
 
-new Badger()                           // current time
-new Badger("2026-03-15T10:30:00")     // bare datetime → treated as UTC (Z appended)
-new Badger("2026-03-15")              // date-only → UTC midnight
-new Badger("2026-03-15T10:30:00Z")    // explicit timezone → used as-is
-new Badger(someDate)                  // copy of a Date object
+Badger()                           // current time
+Badger("2026-03-15T10:30:00")     // bare datetime → treated as UTC (Z appended)
+Badger("2026-03-15")              // date-only → UTC midnight
+Badger("2026-03-15T10:30:00Z")    // explicit timezone → used as-is
+Badger(someDate)                  // copy of a Date object
 ```
 
 **String parsing rules**
@@ -47,7 +47,7 @@ new Badger(someDate)                  // copy of a Date object
 
 ### `Badger.fromLocal(date, time)` — local wall-clock factory
 
-Use when a `"YYYY-MM-DD"` + `"HH:mm"` pair represents **local time** (e.g. a user-selected pickup slot). The standard constructor would shift it by the UTC offset.
+Use when a `"YYYY-MM-DD"` + `"HH:mm"` pair represents **local time** (e.g. a user-selected pickup slot). The standard factory would shift it by the UTC offset.
 
 ```ts
 const dt = Badger.fromLocal("2026-05-22", "00:15");
@@ -67,7 +67,7 @@ const latest   = Badger.max(deadline, today, cutoff);
 ### Getters
 
 ```ts
-const dt = new Badger("2026-07-04T15:30:45.123Z");
+const dt = Badger("2026-07-04T15:30:45.123Z");
 
 dt.year        // 2026
 dt.month       // 7       (1-indexed — 1 = January)
@@ -109,7 +109,7 @@ Singular and plural keys both work (`day`/`days`, `month`/`months`, etc.).
 > Month and year addition clamps to the last valid day when the target month is shorter than the source day — Jan 31 + 1 month → Feb 28/29, not Mar 3.
 
 ```ts
-new Badger("2026-01-31").add(1, "month").toISOString()
+Badger("2026-01-31").add(1, "month").toISOString()
 // "2026-02-28T00:00:00.000Z"
 ```
 
@@ -153,8 +153,8 @@ dt.isSameOrAfter(other)  // after or equal
 **`isSame(other, unit?)`** — optionally compare at a given granularity:
 
 ```ts
-const a = new Badger("2026-06-15T10:30:00Z");
-const b = new Badger("2026-06-15T22:00:00Z");
+const a = Badger("2026-06-15T10:30:00Z");
+const b = Badger("2026-06-15T22:00:00Z");
 
 a.isSame(b)         // false — different timestamps
 a.isSame(b, "day")  // true  — same calendar day
@@ -164,9 +164,9 @@ a.isSame(b, "hour") // false — different hour
 **`isBetween(start, end, options?)`** — both boundaries are **exclusive** by default. Throws `RangeError` if `start > end`.
 
 ```ts
-const open  = new Badger("2026-06-01T00:00:00Z");
-const close = new Badger("2026-06-30T00:00:00Z");
-const date  = new Badger("2026-06-15T00:00:00Z");
+const open  = Badger("2026-06-01T00:00:00Z");
+const close = Badger("2026-06-30T00:00:00Z");
+const date  = Badger("2026-06-15T00:00:00Z");
 
 date.isBetween(open, close)                                           // true
 open.isBetween(open, close)                                           // false — excluded
@@ -199,12 +199,12 @@ dt.isSameOrAfter(other, "month")   // after or in the same month
 **`clamp(min, max)`** — constrain to a range. Throws `RangeError` if `min > max`.
 
 ```ts
-const min = new Badger("2026-01-01T00:00:00Z");
-const max = new Badger("2026-12-31T00:00:00Z");
+const min = Badger("2026-01-01T00:00:00Z");
+const max = Badger("2026-12-31T00:00:00Z");
 
-new Badger("2025-06-15T00:00:00Z").clamp(min, max) // → min
-new Badger("2027-06-15T00:00:00Z").clamp(min, max) // → max
-new Badger("2026-06-15T00:00:00Z").clamp(min, max) // → unchanged
+Badger("2025-06-15T00:00:00Z").clamp(min, max) // → min
+Badger("2027-06-15T00:00:00Z").clamp(min, max) // → max
+Badger("2026-06-15T00:00:00Z").clamp(min, max) // → unchanged
 ```
 
 All comparisons accept `Badger | Date`.
@@ -216,8 +216,8 @@ All comparisons accept `Badger | Date`.
 Returns a whole number by default. Pass `float: true` for a fractional result.
 
 ```ts
-const a = new Badger("2026-06-15T10:30:00Z");
-const b = new Badger("2026-06-15T09:00:00Z");
+const a = Badger("2026-06-15T10:30:00Z");
+const b = Badger("2026-06-15T09:00:00Z");
 
 a.diff(b, "hour")        // 1    — floored
 a.diff(b, "hour", true)  // 1.5  — fractional
@@ -270,12 +270,12 @@ Locale-aware formatter built on `Intl.DateTimeFormat`. Defaults to `en-GB` / `Eu
 ### Construction
 
 ```ts
-import { BadgerSett } from "badger-time";
+import { Sett } from "badger-time";
 
-new BadgerSett()                                             // now, global defaults or en-GB / London
-new BadgerSett(someDate)
-new BadgerSett(someDate, new Intl.Locale("sv-SE"))
-new BadgerSett(someDate, new Intl.Locale("sv-SE"), {        // full control
+Sett()                                             // now, global defaults or en-GB / London
+Sett(someDate)
+Sett(someDate, new Intl.Locale("sv-SE"))
+Sett(someDate, new Intl.Locale("sv-SE"), {         // full control
     timeZone: "Europe/Stockholm",
     year: "numeric",
     month: "2-digit",
@@ -286,7 +286,7 @@ new BadgerSett(someDate, new Intl.Locale("sv-SE"), {        // full control
 ### Display
 
 ```ts
-const bs = new BadgerSett(new Date("2026-03-15T10:30:45Z"));
+const bs = Sett(new Date("2026-03-15T10:30:45Z"));
 
 bs.formatDate()           // "15/03/2026, 10:30:45"
 bs.formatDateOnly()       // "15/03/2026"
@@ -303,14 +303,14 @@ bs.getMonthsOfTheYear()   // ["January", …, "December"]
 
 ```ts
 // Saudi Arabia: Friday and Saturday are the weekend
-const bs = new BadgerSett(new Date(), new Intl.Locale("ar-SA"));
+const bs = Sett(new Date(), new Intl.Locale("ar-SA"));
 bs.isWeekend()    // true on Friday or Saturday, false on Sunday
 
 // en-US weeks start on Sunday; en-GB weeks start on Monday
-const us = new BadgerSett(new Date("2026-06-10T12:00:00Z"), new Intl.Locale("en-US"));
+const us = Sett(new Date("2026-06-10T12:00:00Z"), new Intl.Locale("en-US"));
 us.startOfWeek()  // Date → 2026-06-07T00:00:00.000Z  (Sunday)
 
-const gb = new BadgerSett(new Date("2026-06-10T12:00:00Z"), new Intl.Locale("en-GB"));
+const gb = Sett(new Date("2026-06-10T12:00:00Z"), new Intl.Locale("en-GB"));
 gb.startOfWeek()  // Date → 2026-06-08T00:00:00.000Z  (Monday)
 ```
 
@@ -323,21 +323,21 @@ gb.startOfWeek()  // Date → 2026-06-08T00:00:00.000Z  (Monday)
 > Requires `Intl.DurationFormat` (Node ≥ 24, Chrome 127+, Firefox 127+, Safari 17.4+). Throws in older environments.
 
 ```ts
-const bs = new BadgerSett(new Date(), new Intl.Locale("en-GB"));
+const bs = Sett(new Date(), new Intl.Locale("en-GB"));
 
 bs.formatDuration({ hours: 3, minutes: 22 })    // "3 hours and 22 minutes"
 bs.formatDuration({ days: 1, hours: 4 })         // "1 day and 4 hours"
 bs.formatDuration({ hours: 1 })                  // "1 hour"
 
-const de = new BadgerSett(new Date(), new Intl.Locale("de-DE"));
+const de = Sett(new Date(), new Intl.Locale("de-DE"));
 de.formatDuration({ hours: 2, minutes: 30 })     // "2 Stunden und 30 Minuten"
 ```
 
 Pair it with `diff()` to go straight from two dates to a display string:
 
 ```ts
-const elapsed = new Badger(startTime).diff(new Badger(), "minute");
-new BadgerSett(new Date(), new Intl.Locale("en-GB")).formatDuration({ minutes: elapsed });
+const elapsed = Badger(startTime).diff(Badger(), "minute");
+Sett(new Date(), new Intl.Locale("en-GB")).formatDuration({ minutes: elapsed });
 // "47 minutes"
 ```
 
@@ -374,9 +374,9 @@ BadgerSettings.defaultLocale   = new Intl.Locale("sv-SE");
 BadgerSettings.defaultTimeZone = "Europe/Stockholm";
 
 // No locale arg needed anywhere in the app
-new BadgerSett(order.deliveryTime).formatDate();   // formatted in sv-SE / Stockholm
-new BadgerSett(order.deliveryTime).isWeekend();    // uses sv-SE weekInfo
-new BadgerSett(order.deliveryTime).startOfWeek();  // week starts per sv-SE
+Sett(order.deliveryTime).formatDate();   // formatted in sv-SE / Stockholm
+Sett(order.deliveryTime).isWeekend();    // uses sv-SE weekInfo
+Sett(order.deliveryTime).startOfWeek();  // week starts per sv-SE
 ```
 
 An explicit locale passed to the constructor always wins:
@@ -384,7 +384,7 @@ An explicit locale passed to the constructor always wins:
 ```ts
 BadgerSettings.defaultLocale = new Intl.Locale("sv-SE");
 
-new BadgerSett(date, new Intl.Locale("fr-FR")).formatDate();
+Sett(date, new Intl.Locale("fr-FR")).formatDate();
 // → fr-FR (explicit arg overrides the global)
 ```
 
@@ -460,8 +460,8 @@ import { useLocale } from "./localeContext";
 function OrderCard({ order }) {
     const locale = useLocale(); // re-renders when locale changes
 
-    const formatted = new BadgerSett(order.deliveryTime, locale).formatDate();
-    const relative  = new BadgerSett(order.deliveryTime, locale).formatRelative();
+    const formatted = Sett(order.deliveryTime, locale).formatDate();
+    const relative  = Sett(order.deliveryTime, locale).formatRelative();
 
     return (
         <View>
@@ -514,7 +514,7 @@ import { appLocale } from "./locale";
 import { BadgerSett } from "badger-time";
 
 const formatted = computed(() =>
-    new BadgerSett(order.deliveryTime, appLocale.value).formatDate()
+    Sett(order.deliveryTime, appLocale.value).formatDate()
 );
 ```
 
@@ -524,7 +524,7 @@ const formatted = computed(() =>
 BadgerSettings.subscribe(locale => {
     document.querySelectorAll<HTMLElement>("[data-timestamp]").forEach(el => {
         const ts = el.dataset.timestamp!;
-        el.textContent = new BadgerSett(new Date(ts), locale).formatRelative();
+        el.textContent = Sett(new Date(ts), locale).formatRelative();
     });
 });
 ```
@@ -542,14 +542,16 @@ BadgerSettings.reset();
 ## Common patterns
 
 ```ts
+import { badger, sett, Badger, BadgerSettings } from "badger-time";
+
 // Is a delivery slot today?
-new Badger(order.deliveryTime).isToday();
+Badger(order.deliveryTime).isToday();
 
 // Minutes until an order is due
-new Badger(order.dueAt).diff(new Badger(), "minute");
+Badger(order.dueAt).diff(Badger(), "minute");
 
 // Progress through a shift (fractional hours)
-new Badger().diff(new Badger(shiftStart), "hour", true);
+Badger().diff(Badger(shiftStart), "hour", true);
 
 // Is a booking within an open window (inclusive of opening time)?
 slot.isBetween(openingTime, closingTime, { includeStart: true });
@@ -558,23 +560,20 @@ slot.isBetween(openingTime, closingTime, { includeStart: true });
 const effective = Badger.min(selectedDate, deadline);
 
 // Start of today in UTC for a backend query
-new BadgerSett(new Badger().toDate()).formatForBackendToStartOfDay();
+Sett(Badger().toDate()).formatForBackendToStartOfDay();
 
 // Localised opening hours label (Stockholm locale)
-new BadgerSett(
-    new Badger(openingHour).toDate(),
-    new Intl.Locale("sv-SE")
-).formatTimeOnly();
+Sett(Badger(openingHour).toDate(), new Intl.Locale("sv-SE")).formatTimeOnly();
 
 // Is today a day off? Respects locale-defined weekends (e.g. Fri+Sat in ar-SA)
-new BadgerSett(new Date(), userLocale).isWeekend();
+Sett(new Date(), userLocale).isWeekend();
 
 // Start of the current week for a locale-aware calendar view
-new BadgerSett(new Date(), userLocale).startOfWeek();
+Sett(new Date(), userLocale).startOfWeek();
 
 // Human-readable elapsed time (Node 24+ / modern browsers)
-const minutes = new Badger(orderPlacedAt).diff(new Badger(), "minute");
-new BadgerSett(new Date(), new Intl.Locale("en-GB")).formatDuration({ minutes });
+const minutes = Badger(orderPlacedAt).diff(Badger(), "minute");
+Sett(new Date(), new Intl.Locale("en-GB")).formatDuration({ minutes });
 ```
 
 ---
