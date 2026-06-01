@@ -843,6 +843,22 @@ describe("diff float option", () => {
         expect(a.diff(b, "millisecond", true)).toBe(1500);
         expect(a.diff(b, "second", true)).toBe(1.5);
     });
+
+    it("weeks — fractional weeks with float", () => {
+        const a = new Badger("2026-06-26T12:00:00.000Z"); // 11.5 days after Jun 15
+        const b = new Badger("2026-06-15T00:00:00.000Z");
+        expect(a.diff(b, "week", true)).toBeCloseTo(11.5 / 7, 5);
+    });
+
+    it("weeks — integer path via native Date", () => {
+        const a = new Badger("2026-07-15T00:00:00.000Z");
+        expect(a.diff(new Date("2026-06-15T00:00:00.000Z"), "week")).toBe(4);
+    });
+
+    it("days — integer path via native Date", () => {
+        const a = new Badger("2026-06-20T00:00:00.000Z");
+        expect(a.diff(new Date("2026-06-15T00:00:00.000Z"), "day")).toBe(5);
+    });
 });
 
 // ─── add / subtract with object ───────────────────────────────────────────────

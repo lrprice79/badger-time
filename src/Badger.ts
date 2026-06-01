@@ -256,10 +256,11 @@ export class Badger {
 
   /** Day of the year (1–365, or 1–366 in a leap year). */
   get dayOfYear(): number {
-    const start = new Date(this.currentDate.getFullYear(), 0, 0);
-    return Math.floor(
-      (this.currentDate.getTime() - start.getTime()) / 86400000,
-    );
+    const d = this.currentDate;
+    // Project local calendar date into UTC so the ms division is exact regardless of DST.
+    const start = Date.UTC(d.getFullYear(), 0, 0);
+    const current = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate());
+    return Math.floor((current - start) / 86400000);
   }
 
   /** Day of the week (0 = Sunday, 6 = Saturday). */
@@ -800,10 +801,23 @@ export class Badger {
         return trunc(diffMs / 60000);
       case "hour":
         return trunc(diffMs / 3600000);
-      case "day":
-        return trunc(diffMs / 86400000);
-      case "week":
-        return trunc(diffMs / 604800000);
+      case "day": {
+        if (float) return diffMs / 86400000;
+        // Integer path: project local calendar dates into UTC so the count is exact across DST.
+        const d1 = this.currentDate;
+        const d2 = other instanceof Badger ? other.toDate() : other;
+        const utc1 = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate());
+        const utc2 = Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate());
+        return Math.floor((utc1 - utc2) / 86400000);
+      }
+      case "week": {
+        if (float) return diffMs / 604800000;
+        const d1 = this.currentDate;
+        const d2 = other instanceof Badger ? other.toDate() : other;
+        const utc1 = Date.UTC(d1.getFullYear(), d1.getMonth(), d1.getDate());
+        const utc2 = Date.UTC(d2.getFullYear(), d2.getMonth(), d2.getDate());
+        return Math.floor((utc1 - utc2) / 604800000);
+      }
       case "month": {
         const d1 = this.currentDate;
         const d2 = other instanceof Badger ? other.toDate() : other;

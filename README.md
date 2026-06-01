@@ -225,7 +225,7 @@ b.diff(a, "minute")      // -90  — negative when b is before a
 
 Month and year diffs are calendar-based (month components only — day-of-month is ignored). Jan 1 → Jan 31 = 0 months; Jan 31 → Feb 1 = 1 month.
 
-> **DST note:** `diff("day")`, `diff("week")`, and `dayOfYear` use millisecond arithmetic with a fixed 24-hour divisor. On a DST spring-forward day (23-hour day) the result can be off by one for dates that straddle the transition. `startOf`, `endOf`, and all arithmetic methods are unaffected. If your server runs in UTC this never triggers.
+`diff("day")`, `diff("week")`, and `dayOfYear` are **DST-safe** — they operate on local calendar dates projected into UTC, so the result is always an exact whole-day count regardless of whether the range spans a daylight saving transition.
 
 ---
 
