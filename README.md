@@ -8,6 +8,8 @@
 
 ```bash
 npm install badger-time
+# or
+yarn add badger-time
 ```
 
 ---
