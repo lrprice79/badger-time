@@ -31,6 +31,9 @@
     "intl",
     "lightweight"
   ],
+  "engines": {
+    "node": ">=18"
+  },
   "license": "UNLICENSED",
   "publishConfig": {
     "access": "public"

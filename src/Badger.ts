@@ -495,9 +495,12 @@ export class Badger {
         if (d.getDate() !== dayBefore) d.setDate(0);
         break;
       }
-      case "day":
+      case "day": {
+        const originalMonth = d.getMonth();
         d.setDate(value);
+        if (d.getMonth() !== originalMonth) d.setDate(0);
         break;
+      }
       case "hour":
         d.setHours(value);
         break;

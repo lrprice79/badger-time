@@ -454,6 +454,23 @@ describe("formatRelative with relativeTo anchor", () => {
     });
 });
 
+// ─── currentDate is readonly ──────────────────────────────────────────────────
+
+describe("currentDate readonly", () => {
+    it("currentDate is exposed and reflects the constructed date", () => {
+        const d = new Date("2026-06-15T12:00:00Z");
+        const bs = new BadgerSett(d);
+        expect(bs.currentDate.getTime()).toBe(d.getTime());
+    });
+
+    it("currentDate is a different reference from the constructor argument", () => {
+        const d = new Date("2026-06-15T12:00:00Z");
+        const bs = new BadgerSett(d);
+        d.setFullYear(2000);
+        expect(bs.currentDate.getFullYear()).toBe(2026);
+    });
+});
+
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 const defaultStockholmOpts: Intl.DateTimeFormatOptions = {

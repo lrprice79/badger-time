@@ -27,7 +27,7 @@ type Weekday = "long" | "short" | "narrow" | undefined;
  * ```
  */
 export class BadgerSett extends Intl.DateTimeFormat {
-    currentDate: Date;
+    readonly currentDate: Date;
 
     /**
      * @param date - Date to format. Defaults to `new Date()`.

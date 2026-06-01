@@ -1082,6 +1082,55 @@ describe("set", () => {
     it("set millisecond -1 throws RangeError", () => {
         expect(() => dt.set("millisecond", -1)).toThrow(RangeError);
     });
+
+    it("set day 31 on Feb clamps to Feb 28 (non-leap)", () => {
+        const feb = new Badger("2026-02-15T00:00:00Z");
+        const result = feb.set("day", 31);
+        expect(result.month).toBe(2);
+        expect(result.day).toBe(28);
+    });
+
+    it("set day 31 on Feb clamps to Feb 29 (leap)", () => {
+        const feb = new Badger("2024-02-15T00:00:00Z");
+        const result = feb.set("day", 31);
+        expect(result.month).toBe(2);
+        expect(result.day).toBe(29);
+    });
+
+    it("set day 31 on April (30 days) clamps to Apr 30", () => {
+        const apr = new Badger("2026-04-10T00:00:00Z");
+        const result = apr.set("day", 31);
+        expect(result.month).toBe(4);
+        expect(result.day).toBe(30);
+    });
+
+    it("set day 30 on Feb clamps to Feb 28 (non-leap)", () => {
+        const feb = new Badger("2026-02-01T00:00:00Z");
+        const result = feb.set("day", 30);
+        expect(result.month).toBe(2);
+        expect(result.day).toBe(28);
+    });
+
+    it("set day 29 on Feb 2026 (non-leap) clamps to Feb 28", () => {
+        const feb = new Badger("2026-02-01T00:00:00Z");
+        const result = feb.set("day", 29);
+        expect(result.month).toBe(2);
+        expect(result.day).toBe(28);
+    });
+
+    it("set day 29 on Feb 2024 (leap) succeeds — returns Feb 29", () => {
+        const feb = new Badger("2024-02-15T00:00:00Z");
+        const result = feb.set("day", 29);
+        expect(result.month).toBe(2);
+        expect(result.day).toBe(29);
+    });
+
+    it("set day 31 on a 31-day month works normally", () => {
+        const jan = new Badger("2026-01-15T00:00:00Z");
+        const result = jan.set("day", 31);
+        expect(result.month).toBe(1);
+        expect(result.day).toBe(31);
+    });
 });
 
 // ─── daysInYear ───────────────────────────────────────────────────────────────

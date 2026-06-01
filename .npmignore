@@ -3,5 +3,6 @@ scripts/
 rollup.config.mjs
 tsconfig.json
 CLAUDE.md
+README.md
 *.ts
 !dist/
