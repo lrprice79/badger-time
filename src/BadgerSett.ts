@@ -1,4 +1,5 @@
 import { BadgerSettings } from "./BadgerSettings";
+import { Badger } from "./Badger";
 
 const defaultDateFormatOptions: Intl.DateTimeFormatOptions = {
     year: "numeric",
@@ -249,6 +250,26 @@ export class BadgerSett extends Intl.DateTimeFormat {
      * @example
      * bs.formatDuration({ hours: 3, minutes: 22 }) // "3 hours and 22 minutes"
      */
+    /**
+     * Convenience method — calls `countdown()` on the given `Badger` date and
+     * formats the result with `Intl.DurationFormat` in the configured locale.
+     * Returns `null` if the date is in the past or equal to now.
+     *
+     * Requires `Intl.DurationFormat` (Node ≥ 24, Chrome 127+, Firefox 127+, Safari 17.4+).
+     *
+     * @example
+     * ```ts
+     * Sett(new Date(), new Intl.Locale("en-GB")).formatCountdown(Badger("2026-12-25"))
+     * // "206 days, 3 hours, 14 minutes, and 22 seconds"  — or null if past
+     * ```
+     */
+    /* v8 ignore next 6 — Intl.DurationFormat only available in Node 24+; covered by CI */
+    formatCountdown(target: Badger): string | null {
+        const remaining = target.countdown(this.currentDate);
+        if (!remaining) return null;
+        return this.formatDuration(remaining);
+    }
+
     /* v8 ignore next 8 — Intl.DurationFormat only available in Node 24+; covered by CI */
     formatDuration(duration: Record<string, number>): string {
         const DurationFormat = (Intl as any).DurationFormat;

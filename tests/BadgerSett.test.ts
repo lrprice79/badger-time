@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { BadgerSett } from "../src/BadgerSett";
 import { BadgerSettings } from "../src/BadgerSettings";
+import { Badger } from "../src/Badger";
 
 // All tests run under TZ=UTC (set in vitest.config.ts).
 // Europe/London is UTC in winter and UTC+1 in summer (BST).
@@ -617,6 +618,42 @@ describe.skipIf(!hasDurationFormat)("formatDuration (Intl.DurationFormat)", () =
         const result = bs.formatDuration({ seconds: 45 });
         expect(result).toContain("45");
         expect(result.toLowerCase()).toContain("second");
+    });
+});
+
+// ─── formatCountdown ──────────────────────────────────────────────────────────
+// Convenience wrapper: calls countdown() on the Badger then formats with
+// Intl.DurationFormat. Returns null when the date is in the past.
+// Skipped when Intl.DurationFormat is unavailable (Node < 24).
+
+describe.skipIf(!hasDurationFormat)("formatCountdown (Intl.DurationFormat)", () => {
+    it("returns a formatted string for a future date", () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-06-15T00:00:00Z"));
+        const bs = new BadgerSett(new Date(), new Intl.Locale("en-GB"));
+        const target = new Badger("2026-06-17T02:00:00Z");
+        const result = bs.formatCountdown(target);
+        expect(result).not.toBeNull();
+        expect(result).toContain("2");  // 2 days
+        vi.useRealTimers();
+    });
+
+    it("returns null for a past date", () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-06-15T00:00:00Z"));
+        const bs = new BadgerSett(new Date(), new Intl.Locale("en-GB"));
+        const target = new Badger("2026-06-14T00:00:00Z");
+        expect(bs.formatCountdown(target)).toBeNull();
+        vi.useRealTimers();
+    });
+
+    it("returns null when target equals now", () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-06-15T00:00:00Z"));
+        const bs = new BadgerSett(new Date(), new Intl.Locale("en-GB"));
+        const target = new Badger("2026-06-15T00:00:00Z");
+        expect(bs.formatCountdown(target)).toBeNull();
+        vi.useRealTimers();
     });
 });
 

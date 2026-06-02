@@ -1474,7 +1474,7 @@ describe("Badger.range", () => {
 // Optionally pass a relativeTo date — defaults to now.
 
 describe("countdown", () => {
-    it("returns correct days, hours, minutes, seconds", () => {
+    it("returns correct days, hours, minutes, seconds for a future date", () => {
         const target = new Badger("2026-06-17T02:30:45Z");
         const anchor = new Badger("2026-06-15T00:00:00Z");
         expect(target.countdown(anchor.toDate())).toEqual({ days: 2, hours: 2, minutes: 30, seconds: 45 });
@@ -1492,22 +1492,21 @@ describe("countdown", () => {
         expect(target.countdown(anchor.toDate())).toEqual({ days: 0, hours: 0, minutes: 45, seconds: 30 });
     });
 
-    it("returns all zeros when target equals anchor", () => {
+    it("returns null when target equals anchor — countdown is over", () => {
         const target = new Badger("2026-06-15T00:00:00Z");
-        expect(target.countdown(new Date("2026-06-15T00:00:00Z"))).toEqual({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        expect(target.countdown(new Date("2026-06-15T00:00:00Z"))).toBeNull();
     });
 
-    it("returns all zeros when target is in the past", () => {
+    it("returns null when target is in the past", () => {
         const target = new Badger("2026-06-14T00:00:00Z");
         const anchor = new Badger("2026-06-15T00:00:00Z");
-        expect(target.countdown(anchor.toDate())).toEqual({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        expect(target.countdown(anchor.toDate())).toBeNull();
     });
 
     it("hours, minutes, seconds do not overflow their unit", () => {
-        // 1 day + 1 hour + 1 minute + 1 second
         const target = new Badger("2026-06-16T01:01:01Z");
         const anchor = new Badger("2026-06-15T00:00:00Z");
-        const result = target.countdown(anchor.toDate());
+        const result = target.countdown(anchor.toDate())!;
         expect(result.hours).toBeLessThan(24);
         expect(result.minutes).toBeLessThan(60);
         expect(result.seconds).toBeLessThan(60);
@@ -1517,15 +1516,23 @@ describe("countdown", () => {
     it("result keys are always whole numbers", () => {
         const target = new Badger("2026-06-17T02:30:45Z");
         const anchor = new Badger("2026-06-15T00:00:00Z");
-        const result = target.countdown(anchor.toDate());
+        const result = target.countdown(anchor.toDate())!;
         Object.values(result).forEach(v => expect(Number.isInteger(v)).toBe(true));
     });
 
-    it("no arg defaults to now — future date returns non-zero countdown", () => {
+    it("no arg defaults to now — future date returns non-null countdown", () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date("2026-06-15T00:00:00Z"));
         const result = new Badger("2026-06-16T00:00:00Z").countdown();
         expect(result).toEqual({ days: 1, hours: 0, minutes: 0, seconds: 0 });
+        vi.useRealTimers();
+    });
+
+    it("no arg defaults to now — past date returns null", () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-06-15T00:00:00Z"));
+        const result = new Badger("2026-06-14T00:00:00Z").countdown();
+        expect(result).toBeNull();
         vi.useRealTimers();
     });
 });

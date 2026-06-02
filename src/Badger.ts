@@ -810,9 +810,10 @@ export class Badger {
    * Sett(new Date(), locale).formatDuration(Badger("2026-12-25").countdown())
    * ```
    */
-  countdown(relativeTo?: Date): { days: number; hours: number; minutes: number; seconds: number } {
+  countdown(relativeTo?: Date): { days: number; hours: number; minutes: number; seconds: number } | null {
     const now = relativeTo ?? new Date();
-    const diffMs = Math.max(0, this.currentDate.getTime() - now.getTime());
+    const diffMs = this.currentDate.getTime() - now.getTime();
+    if (diffMs <= 0) return null;
     const days    = Math.floor(diffMs / (1000 * 60 * 60 * 24));
     const hours   = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
     const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
