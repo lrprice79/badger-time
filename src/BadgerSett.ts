@@ -146,13 +146,18 @@ export class BadgerSett extends Intl.DateTimeFormat {
         }).format(this.currentDate);
     }
 
-    /** Formats only the time portion (hour, minute, second) in 24-hour format. */
+    /** Formats only the time portion (hour, minute, second), using the locale's
+     *  preferred hour cycle — 12-hour for en-US/ar-SA, 24-hour for en-GB/de-DE etc. */
     formatTimeOnly() {
-        return new Intl.DateTimeFormat(this.resolvedOptions().locale, {
+        const locale = this.resolvedOptions().locale;
+        const hourCycles = (new Intl.Locale(locale) as any).hourCycles as string[] | undefined;
+        /* v8 ignore next 1 */
+        const is12h = hourCycles?.[0] === "h11" || hourCycles?.[0] === "h12";
+        return new Intl.DateTimeFormat(locale, {
             hour: "2-digit",
             minute: "2-digit",
             second: "2-digit",
-            hour12: false,
+            hour12: is12h,
             timeZone: this.resolvedOptions().timeZone
         }).format(this.currentDate);
     }

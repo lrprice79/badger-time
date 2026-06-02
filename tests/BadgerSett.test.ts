@@ -202,7 +202,7 @@ describe("formatDateOnly", () => {
 // ─── formatTimeOnly ───────────────────────────────────────────────────────────
 
 describe("formatTimeOnly", () => {
-    it("returns HH:MM:SS format (24-hour)", () => {
+    it("returns HH:MM:SS format (24-hour) for en-GB", () => {
         const bs = new BadgerSett("2026-06-15T14:30:45Z");
         const result = bs.formatTimeOnly();
         expect(result).toMatch(/\d{2}:\d{2}:\d{2}/);
@@ -213,9 +213,39 @@ describe("formatTimeOnly", () => {
         expect(bs.formatTimeOnly()).toContain("15");
     });
 
-    it("24-hour format — 23:00 does not display as 11:00", () => {
+    it("24-hour format — 23:00 does not display as 11:00 for en-GB", () => {
         const bs = new BadgerSett("2026-06-15T22:00:00Z"); // 23:00 BST
         expect(bs.formatTimeOnly()).toContain("23");
+    });
+
+    it("en-US uses 12-hour format — 15:30 displays as PM", () => {
+        const bs = new BadgerSett(new Date("2026-06-15T15:30:45Z"), new Intl.Locale("en-US"), {
+            timeZone: "UTC", hour: "2-digit", minute: "2-digit", second: "2-digit"
+        });
+        expect(bs.formatTimeOnly()).toBe("03:30:45 PM");
+    });
+
+    it("en-US morning time shows AM", () => {
+        const bs = new BadgerSett(new Date("2026-06-15T09:30:45Z"), new Intl.Locale("en-US"), {
+            timeZone: "UTC", hour: "2-digit", minute: "2-digit", second: "2-digit"
+        });
+        expect(bs.formatTimeOnly()).toBe("09:30:45 AM");
+    });
+
+    it("de-DE uses 24-hour format", () => {
+        const bs = new BadgerSett(new Date("2026-06-15T15:30:45Z"), new Intl.Locale("de-DE"), {
+            timeZone: "UTC", hour: "2-digit", minute: "2-digit", second: "2-digit"
+        });
+        expect(bs.formatTimeOnly()).toBe("15:30:45");
+    });
+
+    it("ar-SA uses 12-hour format", () => {
+        const bs = new BadgerSett(new Date("2026-06-15T15:30:45Z"), new Intl.Locale("ar-SA"), {
+            timeZone: "UTC", hour: "2-digit", minute: "2-digit", second: "2-digit"
+        });
+        const result = bs.formatTimeOnly();
+        // ar-SA is 12h — should not contain 15
+        expect(result).not.toContain("15");
     });
 });
 
