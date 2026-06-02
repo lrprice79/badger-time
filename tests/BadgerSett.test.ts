@@ -961,3 +961,125 @@ describe("BadgerSett — invalid date guard on formatting methods (F5)", () => {
         expect(isNaN(result.getTime())).toBe(false);
     });
 });
+
+// ─── Midnight spring-forward DST (second-pass correction) ─────────────────────
+//
+// Most timezones spring forward at 01:00 or 02:00 local time — the `/* v8 ignore */`
+// branch in toUtcIsoAtTimeInTimezone never fires for those. Two timezones spring
+// forward at EXACTLY local midnight (00:00), so midnight itself doesn't exist and
+// the first-pass offset no longer matches the adjusted time:
+//
+//   America/Havana (Cuba)    — UTC-5 CST → UTC-4 CDT on 1st Sun≥Mar 8 at 00:00 local
+//   Atlantic/Azores          — UTC-1 → UTC+0 on last Sun of March at 01:00 UTC = 00:00 local
+//
+// Before the fix: the second-pass formula `utcGuess + offset2` was used for both cases.
+// That is correct for UTC+ zones but wrong for UTC- zones — it returned a UTC instant
+// that still corresponded to the PREVIOUS day in the local timezone (e.g. 23:00 local
+// the night before, instead of the first valid moment 01:00 local on the spring-forward day).
+//
+// After the fix: Math.max(adjusted, utcGuess + offset2) — picks the correct (later)
+// candidate in both UTC+ and UTC- cases.
+//
+// Cuba 2026 spring-forward:  Mar 8 at UTC 05:00  (local 00:00 CST → 01:00 CDT)
+// Azores 2026 spring-forward: Mar 29 at UTC 01:00 (local 00:00 -01:00 → 01:00 UTC+0)
+
+function havanaOpts(): Intl.DateTimeFormatOptions {
+    return {
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
+        hour12: false, timeZone: "America/Havana"
+    };
+}
+
+function azoresOpts(): Intl.DateTimeFormatOptions {
+    return {
+        year: "numeric", month: "2-digit", day: "2-digit",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
+        hour12: false, timeZone: "Atlantic/Azores"
+    };
+}
+
+describe("formatForBackendToStartOfDay — midnight spring-forward (Cuba, America/Havana)", () => {
+    // Confirmed transition boundary:
+    //   2026-03-08T04:59:59Z → Havana local 07/03/2026 23:59:59 (CST, still previous day)
+    //   2026-03-08T05:00:00Z → Havana local 08/03/2026 01:00:00 (CDT, first moment of Mar 8)
+    // Local midnight (00:00) on March 8 was skipped — the spring-forward gap is 00:00→01:00.
+
+    it("start of spring-forward day returns the first valid UTC instant (01:00 CDT = 05:00Z)", () => {
+        // Before fix: returned 2026-03-08T04:00:00.000Z — which is 23:00 CST on Mar 7 (wrong day).
+        // After fix:  returns 2026-03-08T05:00:00.000Z — which is 01:00 CDT on Mar 8 (correct).
+        const bs = new BadgerSett(
+            new Date("2026-03-08T12:00:00Z"), // noon UTC = 08:00 CDT, clearly Mar 8
+            new Intl.Locale("en-US"),
+            havanaOpts()
+        );
+        expect(bs.formatForBackendToStartOfDay()).toBe("2026-03-08T05:00:00.000Z");
+    });
+
+    it("end of spring-forward day is unaffected — still 23:59:59 CDT = 03:59:59Z next day", () => {
+        const bs = new BadgerSett(
+            new Date("2026-03-08T12:00:00Z"),
+            new Intl.Locale("en-US"),
+            havanaOpts()
+        );
+        expect(bs.formatForBackendToEndOfDay()).toBe("2026-03-09T03:59:59.999Z");
+    });
+
+    it("day before spring-forward is unaffected — normal CST day", () => {
+        // Mar 7 is a normal day in CST (UTC-5); no spring-forward involved.
+        const bs = new BadgerSett(
+            new Date("2026-03-07T12:00:00Z"), // noon UTC = 07:00 CST, clearly Mar 7
+            new Intl.Locale("en-US"),
+            havanaOpts()
+        );
+        expect(bs.formatForBackendToStartOfDay()).toBe("2026-03-07T05:00:00.000Z"); // midnight CST
+        expect(bs.formatForBackendToEndOfDay()).toBe("2026-03-08T04:59:59.999Z");   // 23:59:59 CST
+    });
+
+    it("day after spring-forward is unaffected — normal CDT day", () => {
+        const bs = new BadgerSett(
+            new Date("2026-03-09T12:00:00Z"),
+            new Intl.Locale("en-US"),
+            havanaOpts()
+        );
+        expect(bs.formatForBackendToStartOfDay()).toBe("2026-03-09T04:00:00.000Z"); // midnight CDT
+        expect(bs.formatForBackendToEndOfDay()).toBe("2026-03-10T03:59:59.999Z");
+    });
+});
+
+describe("formatForBackendToStartOfDay — midnight spring-forward (Azores, Atlantic/Azores)", () => {
+    // Confirmed transition boundary:
+    //   2026-03-29T00:59:59Z → Azores local 28/03/2026 23:59:59 (-01:00, still previous day)
+    //   2026-03-29T01:00:00Z → Azores local 29/03/2026 01:00:00 (UTC+0, first moment of Mar 29)
+    // Local midnight on March 29 was skipped — transition is at 01:00 UTC = 00:00 local -01:00.
+
+    it("start of spring-forward day returns the first valid UTC instant (01:00 UTC+0 = 01:00Z)", () => {
+        // Before fix: returned 2026-03-29T00:00:00.000Z — which is 23:00 local on Mar 28 (wrong day).
+        // After fix:  returns 2026-03-29T01:00:00.000Z — which is 01:00 UTC+0 on Mar 29 (correct).
+        const bs = new BadgerSett(
+            new Date("2026-03-29T12:00:00Z"), // noon UTC = noon UTC+0, clearly Mar 29
+            new Intl.Locale("en-US"),
+            azoresOpts()
+        );
+        expect(bs.formatForBackendToStartOfDay()).toBe("2026-03-29T01:00:00.000Z");
+    });
+
+    it("end of spring-forward day is unaffected — 23:59:59 UTC+0 = 23:59:59Z", () => {
+        const bs = new BadgerSett(
+            new Date("2026-03-29T12:00:00Z"),
+            new Intl.Locale("en-US"),
+            azoresOpts()
+        );
+        expect(bs.formatForBackendToEndOfDay()).toBe("2026-03-29T23:59:59.999Z");
+    });
+
+    it("day before spring-forward is unaffected — normal -01:00 day", () => {
+        const bs = new BadgerSett(
+            new Date("2026-03-28T12:00:00Z"), // noon UTC = 11:00 local -01:00
+            new Intl.Locale("en-US"),
+            azoresOpts()
+        );
+        expect(bs.formatForBackendToStartOfDay()).toBe("2026-03-28T01:00:00.000Z"); // midnight -01:00
+        expect(bs.formatForBackendToEndOfDay()).toBe("2026-03-29T00:59:59.999Z");
+    });
+});

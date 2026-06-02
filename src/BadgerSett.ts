@@ -112,9 +112,13 @@ export class BadgerSett extends Intl.DateTimeFormat {
 
         // Verify: the offset may have changed (DST boundary). Re-check and adjust if needed.
         const offset2 = this.getTimezoneOffsetMs(adjusted, tz);
-        /* v8 ignore next 3 — fires only for timezones that spring forward at midnight */
         if (offset !== offset2) {
-            return new Date(utcGuess.getTime() + offset2).toISOString();
+            // Midnight was skipped (spring-forward at 00:00 local time — e.g. Cuba, Azores).
+            // Two candidate UTC instants; the correct one is whichever is LATER:
+            //   - For UTC- zones: `adjusted` already lands on the first valid moment of the day.
+            //   - For UTC+ zones: `utcGuess + offset2` lands on the first valid moment.
+            // Math.max picks the right answer in both cases.
+            return new Date(Math.max(adjusted.getTime(), utcGuess.getTime() + offset2)).toISOString();
         }
         return adjusted.toISOString();
     }
