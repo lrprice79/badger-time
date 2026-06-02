@@ -41,7 +41,7 @@ badger-time uses the browser and Node's built-in `Intl` APIs to get these things
 | Countdown with `null` for past dates | ✗ | ✗ | ✗ | ✅ |
 | Native duration formatting (`Intl.DurationFormat`) | ✗ | ✗ | ✗ | ✅ |
 | Reactive global locale (`subscribe`) | ✗ | ✗ | ✗ | ✅ |
-| Bundle size (min+gzip) | ~72 KB | ~14 KB | ~23 KB | **< 5 KB** |
+| Bundle size (min+gzip) | ~72 KB | ~14 KB | ~23 KB | **~7 KB** |
 
 ---
 
