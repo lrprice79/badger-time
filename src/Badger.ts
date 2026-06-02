@@ -1,3 +1,5 @@
+import { BadgerSettings } from "./BadgerSettings";
+
 type UnitOfTime =
   | "year"
   | "quarter"
@@ -368,6 +370,8 @@ export class Badger {
       case "millisecond":
         // Millisecond is the finest unit — already at full precision, return clone unchanged.
         break;
+      default:
+        throw new TypeError(`startOf: unknown unit "${unit as string}"`);
     }
     return clone;
   }
@@ -414,6 +418,8 @@ export class Badger {
       case "millisecond":
         // Millisecond is the finest unit — already at full precision, return clone unchanged.
         break;
+      default:
+        throw new TypeError(`endOf: unknown unit "${unit as string}"`);
     }
     return clone;
   }
@@ -452,7 +458,8 @@ export class Badger {
         this as Badger,
       );
     }
-    return this._addUnit(amount, unit!);
+    if (unit === undefined) throw new TypeError("add: unit is required when amount is a number");
+    return this._addUnit(amount, unit);
   }
 
   private _addUnit(amount: number, unit: UnitOfTime): Badger {
@@ -495,6 +502,8 @@ export class Badger {
       case "millisecond":
         date.setTime(date.getTime() + amount);
         break;
+      default:
+        throw new TypeError(`add: unknown unit "${unit as string}"`);
     }
     return clone;
   }
@@ -553,6 +562,8 @@ export class Badger {
       case "millisecond":
         d.setMilliseconds(value);
         break;
+      default:
+        throw new TypeError(`set: unknown unit "${unit as string}"`);
     }
     return clone;
   }
@@ -570,7 +581,8 @@ export class Badger {
       ) as Partial<DurationObject>;
       return this.add(negated);
     }
-    return this.add(-amount, unit!);
+    if (unit === undefined) throw new TypeError("subtract: unit is required when amount is a number");
+    return this.add(-amount, unit);
   }
 
   // --- Comparison ---
@@ -721,6 +733,7 @@ export class Badger {
   clamp(min: Badger | Date, max: Badger | Date): Badger {
     const minTime = min instanceof Badger ? min.toDate().getTime() : min.getTime();
     const maxTime = max instanceof Badger ? max.toDate().getTime() : max.getTime();
+    if (isNaN(minTime) || isNaN(maxTime)) throw new RangeError("clamp: min and max must be valid dates");
     if (minTime > maxTime) throw new RangeError("clamp: min must not be after max");
     if (this.isBefore(min))
       return min instanceof Badger ? min.clone() : new Badger(min);
@@ -755,6 +768,7 @@ export class Badger {
   ): boolean {
     const startTime = start instanceof Badger ? start.toDate().getTime() : start.getTime();
     const endTime = end instanceof Badger ? end.toDate().getTime() : end.getTime();
+    if (isNaN(startTime) || isNaN(endTime)) throw new RangeError("isBetween: start and end must be valid dates");
     if (startTime > endTime) throw new RangeError("isBetween: start must not be after end");
     const afterStart = options.includeStart
       ? this.isSameOrAfter(start)
@@ -790,9 +804,9 @@ export class Badger {
     return this.isSame(new Badger().add(1, "day"), "day");
   }
 
-  /** Returns `true` if the date falls on Saturday or Sunday. */
+  /** Returns `true` if the date falls on Saturday or Sunday (UTC day of week). */
   isWeekend(): boolean {
-    const day = this.currentDate.getDay();
+    const day = this.currentDate.getUTCDay();
     return day === 0 || day === 6;
   }
 
@@ -820,6 +834,7 @@ export class Badger {
    * ```
    */
   countdown(relativeTo?: Date): { days: number; hours: number; minutes: number; seconds: number } | null {
+    if (!this.isValid()) return null;
     const now = relativeTo ?? new Date();
     const diffMs = this.currentDate.getTime() - now.getTime();
     if (diffMs <= 0) return null;
@@ -834,17 +849,19 @@ export class Badger {
 
   /**
    * Returns the weekend day numbers (ISO: 1=Mon…7=Sun) for the given locale.
-   * Falls back to [6, 7] (Sat, Sun) when weekInfo is unavailable.
+   * Resolution order: explicit `locale` arg → `BadgerSettings.defaultLocale` → `[6, 7]` (Sat, Sun).
    */
   private getWeekend(locale?: Intl.Locale): number[] {
+    const resolved = locale ?? BadgerSettings.defaultLocale;
     /* v8 ignore next 2 */
-    if (!locale) return [6, 7];
-    return (locale as any).weekInfo?.weekend ?? [6, 7];
+    if (!resolved) return [6, 7];
+    return (resolved as any).weekInfo?.weekend ?? [6, 7];
   }
 
   /**
-   * Returns `true` if the date is a business day in the given locale.
-   * Defaults to Saturday+Sunday as the weekend when no locale is provided.
+   * Returns `true` if the date is a business day.
+   * Resolution order for the weekend definition: explicit `locale` arg →
+   * `BadgerSettings.defaultLocale` → Saturday+Sunday.
    */
   isBusinessDay(locale?: Intl.Locale): boolean {
     const weekend = this.getWeekend(locale);
@@ -858,7 +875,7 @@ export class Badger {
    * skipping weekend days as defined by the given locale.
    */
   addBusinessDays(n: number, locale?: Intl.Locale): Badger {
-    if (Math.sign(n) < 0) throw new RangeError(`addBusinessDays: n must be non-negative, got ${n}`);
+    if (!Number.isFinite(n) || n < 0) throw new RangeError(`addBusinessDays: n must be a non-negative finite number, got ${n}`);
     const weekend = this.getWeekend(locale);
     let result = new Date(this.currentDate);
     let remaining = n;
@@ -876,7 +893,7 @@ export class Badger {
    * skipping weekend days as defined by the given locale.
    */
   subtractBusinessDays(n: number, locale?: Intl.Locale): Badger {
-    if (Math.sign(n) < 0) throw new RangeError(`subtractBusinessDays: n must be non-negative, got ${n}`);
+    if (!Number.isFinite(n) || n < 0) throw new RangeError(`subtractBusinessDays: n must be a non-negative finite number, got ${n}`);
     const weekend = this.getWeekend(locale);
     let result = new Date(this.currentDate);
     let remaining = n;

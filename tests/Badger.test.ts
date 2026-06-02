@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Badger } from "../src/Badger";
+import { BadgerSettings } from "../src/BadgerSettings";
 
 // All tests run under TZ=UTC (set in vitest.config.ts).
 // Local-time getters therefore equal UTC values, making assertions deterministic.
@@ -1661,6 +1662,45 @@ describe("subtractBusinessDays", () => {
     });
 });
 
+// ─── Business days — global locale fallback ───────────────────────────────────
+// When no locale is passed, should fall back to BadgerSettings.defaultLocale
+// before hardcoding Sat+Sun.
+
+describe("business days — BadgerSettings.defaultLocale fallback", () => {
+    afterEach(() => BadgerSettings.reset());
+
+    it("isBusinessDay() uses defaultLocale when no locale arg is passed", () => {
+        BadgerSettings.defaultLocale = new Intl.Locale("ar-SA");
+        // Friday — weekend in ar-SA, business day in en-GB
+        expect(new Badger("2026-06-12T12:00:00Z").isBusinessDay()).toBe(false);
+    });
+
+    it("isBusinessDay() explicit locale arg overrides defaultLocale", () => {
+        BadgerSettings.defaultLocale = new Intl.Locale("ar-SA");
+        // Friday — pass en-GB explicitly, should be a business day
+        expect(new Badger("2026-06-12T12:00:00Z").isBusinessDay(new Intl.Locale("en-GB"))).toBe(true);
+    });
+
+    it("addBusinessDays() uses defaultLocale when no locale arg is passed", () => {
+        BadgerSettings.defaultLocale = new Intl.Locale("ar-SA");
+        // Thu Jun 11 + 1 business day ar-SA → Sun Jun 14 (skips Fri+Sat)
+        expect(new Badger("2026-06-11T12:00:00Z").addBusinessDays(1).toISOString())
+            .toBe("2026-06-14T12:00:00.000Z");
+    });
+
+    it("subtractBusinessDays() uses defaultLocale when no locale arg is passed", () => {
+        BadgerSettings.defaultLocale = new Intl.Locale("ar-SA");
+        // Sun Jun 14 - 1 business day ar-SA → Thu Jun 11 (skips Sat+Fri going back)
+        expect(new Badger("2026-06-14T12:00:00Z").subtractBusinessDays(1).toISOString())
+            .toBe("2026-06-11T12:00:00.000Z");
+    });
+
+    it("falls back to Sat+Sun when no locale arg and no defaultLocale", () => {
+        // No global locale set — Friday should be a business day
+        expect(new Badger("2026-06-12T12:00:00Z").isBusinessDay()).toBe(true);
+    });
+});
+
 // ─── Audit fixes ──────────────────────────────────────────────────────────────
 
 describe("Badger.min / Badger.max — empty args", () => {
@@ -1740,5 +1780,148 @@ describe("startOf / endOf millisecond — explicit no-op", () => {
         const result = dt.endOf("millisecond");
         expect(result.toISOString()).toBe(dt.toISOString());
         expect(result).not.toBe(dt);
+    });
+});
+
+// ─── Runtime guard: unknown unit strings ─────────────────────────────────────
+// TypeScript enforces UnitOfTime at compile time, but runtime JS callers can
+// pass anything. Every switch that dispatches on a unit now has a default that
+// throws TypeError so callers get an explicit error instead of a silent no-op.
+
+describe("unknown unit — runtime TypeError guards", () => {
+    const dt = new Badger("2026-06-15T12:30:45.500Z");
+
+    it("startOf with unknown unit throws TypeError", () => {
+        expect(() => (dt as any).startOf("fortnight")).toThrow(TypeError);
+    });
+
+    it("endOf with unknown unit throws TypeError", () => {
+        expect(() => (dt as any).endOf("fortnight")).toThrow(TypeError);
+    });
+
+    it("add (via _addUnit) with unknown unit throws TypeError", () => {
+        expect(() => (dt as any)._addUnit(1, "fortnight")).toThrow(TypeError);
+    });
+
+    it("set with unknown unit throws TypeError", () => {
+        expect(() => (dt as any).set("fortnight", 1)).toThrow(TypeError);
+    });
+});
+
+// ─── Runtime guard: add / subtract with missing unit ─────────────────────────
+// Calling add(number) or subtract(number) without a unit is a silent no-op at
+// runtime. Both now throw TypeError immediately to surface the mistake.
+
+describe("add / subtract — missing unit guard", () => {
+    const dt = new Badger("2026-06-15T12:00:00Z");
+
+    it("add(number) without unit throws TypeError", () => {
+        expect(() => (dt as any).add(5)).toThrow(TypeError);
+    });
+
+    it("subtract(number) without unit throws TypeError", () => {
+        expect(() => (dt as any).subtract(5)).toThrow(TypeError);
+    });
+
+    it("add(number, unit) still works normally", () => {
+        expect(dt.add(1, "day").day).toBe(16);
+    });
+
+    it("subtract(number, unit) still works normally", () => {
+        expect(dt.subtract(1, "day").day).toBe(14);
+    });
+});
+
+// ─── Runtime guard: countdown on invalid Badger ───────────────────────────────
+// An invalid Badger (e.g. constructed from a bad string) previously returned
+// { days: NaN, ... } because NaN <= 0 is false. It now returns null immediately.
+
+describe("countdown — invalid Badger guard", () => {
+    it("invalid Badger returns null, not a NaN object", () => {
+        const invalid = new Badger("not-a-date");
+        expect(invalid.isValid()).toBe(false);
+        expect(invalid.countdown(new Date("2026-06-15T00:00:00Z"))).toBeNull();
+    });
+
+    it("invalid Badger returns null when called with no anchor", () => {
+        const invalid = new Badger("not-a-date");
+        expect(invalid.countdown()).toBeNull();
+    });
+});
+
+// ─── Runtime guard: addBusinessDays / subtractBusinessDays with NaN ──────────
+// Math.sign(NaN) < 0 is false, so NaN bypassed the old guard and produced a
+// silent no-op. The check is now !Number.isFinite(n) || n < 0.
+
+describe("addBusinessDays / subtractBusinessDays — NaN guard", () => {
+    const dt = new Badger("2026-06-15T12:00:00Z");
+
+    it("addBusinessDays(NaN) throws RangeError", () => {
+        expect(() => dt.addBusinessDays(NaN)).toThrow(RangeError);
+    });
+
+    it("subtractBusinessDays(NaN) throws RangeError", () => {
+        expect(() => dt.subtractBusinessDays(NaN)).toThrow(RangeError);
+    });
+
+    it("addBusinessDays(Infinity) throws RangeError", () => {
+        expect(() => dt.addBusinessDays(Infinity)).toThrow(RangeError);
+    });
+
+    it("subtractBusinessDays(Infinity) throws RangeError", () => {
+        expect(() => dt.subtractBusinessDays(Infinity)).toThrow(RangeError);
+    });
+});
+
+// ─── Runtime guard: clamp / isBetween with invalid bounds ─────────────────────
+// NaN > NaN is false, so invalid bounds previously slipped past the existing
+// range checks and produced silent wrong-value results. Both now throw eagerly.
+
+describe("clamp / isBetween — invalid bounds guard", () => {
+    const dt = new Badger("2026-06-15T00:00:00Z");
+    const validMin = new Badger("2026-01-01T00:00:00Z");
+    const validMax = new Badger("2026-12-31T00:00:00Z");
+    const invalidBadger = new Badger("not-a-date");
+    const invalidDate = new Date("not-a-date");
+
+    it("clamp: invalid Badger as min throws RangeError", () => {
+        expect(() => dt.clamp(invalidBadger, validMax)).toThrow(RangeError);
+    });
+
+    it("clamp: invalid Badger as max throws RangeError", () => {
+        expect(() => dt.clamp(validMin, invalidBadger)).toThrow(RangeError);
+    });
+
+    it("clamp: invalid Date as min throws RangeError", () => {
+        expect(() => dt.clamp(invalidDate, new Date("2026-12-31T00:00:00Z"))).toThrow(RangeError);
+    });
+
+    it("clamp: invalid Date as max throws RangeError", () => {
+        expect(() => dt.clamp(new Date("2026-01-01T00:00:00Z"), invalidDate)).toThrow(RangeError);
+    });
+
+    it("isBetween: invalid Badger as start throws RangeError", () => {
+        expect(() => dt.isBetween(invalidBadger, validMax)).toThrow(RangeError);
+    });
+
+    it("isBetween: invalid Badger as end throws RangeError", () => {
+        expect(() => dt.isBetween(validMin, invalidBadger)).toThrow(RangeError);
+    });
+
+    it("isBetween: invalid Date as start throws RangeError", () => {
+        expect(() => dt.isBetween(invalidDate, new Date("2026-12-31T00:00:00Z"))).toThrow(RangeError);
+    });
+
+    it("isBetween: invalid Date as end throws RangeError", () => {
+        expect(() => dt.isBetween(new Date("2026-01-01T00:00:00Z"), invalidDate)).toThrow(RangeError);
+    });
+
+    it("clamp still works normally with valid bounds", () => {
+        const mid = new Badger("2026-06-15T00:00:00Z");
+        expect(mid.clamp(validMin, validMax).toISOString()).toBe(mid.toISOString());
+    });
+
+    it("isBetween still works normally with valid bounds", () => {
+        expect(dt.isBetween(validMin, validMax)).toBe(true);
     });
 });
