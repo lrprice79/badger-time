@@ -819,14 +819,14 @@ export class Badger {
     return this.isSame(new Badger().add(1, "day"), "day");
   }
 
-  /** Returns `true` if the date falls on Saturday or Sunday (UTC day of week). Returns `false` for invalid dates. */
+  /** Returns `true` if the date falls on Saturday or Sunday (local day of week). Returns `false` for invalid dates. */
   isWeekend(): boolean {
     if (!this.isValid()) return false;
-    const day = this.currentDate.getUTCDay();
+    const day = this.currentDate.getDay();     // local — consistent with .dayOfWeek getter
     return day === 0 || day === 6;
   }
 
-  /** Returns `true` if the date falls on Monday–Friday. Returns `false` for invalid dates. */
+  /** Returns `true` if the date falls on Monday–Friday (local day of week). Returns `false` for invalid dates. */
   isWeekday(): boolean {
     if (!this.isValid()) return false;
     return !this.isWeekend();
@@ -884,7 +884,7 @@ export class Badger {
   isBusinessDay(locale?: Intl.Locale): boolean {
     if (!this.isValid()) return false;
     const weekend = this.getWeekend(locale);
-    const jsDay = this.currentDate.getUTCDay();
+    const jsDay = this.currentDate.getDay();    // local — consistent with .dayOfWeek getter
     const isoDay = jsDay === 0 ? 7 : jsDay;
     return !weekend.includes(isoDay);
   }
@@ -892,6 +892,10 @@ export class Badger {
   /**
    * Returns a new `Badger` that is `n` business days after this date,
    * skipping weekend days as defined by the given locale.
+   *
+   * Day-of-week is evaluated in local time (consistent with `.dayOfWeek` and other
+   * getters). The date is stepped with `setUTCDate` to avoid DST edge-cases where
+   * a local "add one day" can land on the wrong calendar date.
    */
   addBusinessDays(n: number, locale?: Intl.Locale): Badger {
     if (!Number.isFinite(n) || n < 0) throw new RangeError(`addBusinessDays: n must be a non-negative finite number, got ${n}`);
@@ -901,7 +905,7 @@ export class Badger {
     let remaining = n;
     while (remaining > 0) {
       result.setUTCDate(result.getUTCDate() + 1);
-      const jsDay = result.getUTCDay();
+      const jsDay = result.getDay();            // local day-of-week
       const isoDay = jsDay === 0 ? 7 : jsDay;
       if (!weekend.includes(isoDay)) remaining--;
     }
@@ -911,6 +915,9 @@ export class Badger {
   /**
    * Returns a new `Badger` that is `n` business days before this date,
    * skipping weekend days as defined by the given locale.
+   *
+   * Day-of-week is evaluated in local time (consistent with `.dayOfWeek` and other
+   * getters). The date is stepped with `setUTCDate` to avoid DST edge-cases.
    */
   subtractBusinessDays(n: number, locale?: Intl.Locale): Badger {
     if (!Number.isFinite(n) || n < 0) throw new RangeError(`subtractBusinessDays: n must be a non-negative finite number, got ${n}`);
@@ -920,7 +927,7 @@ export class Badger {
     let remaining = n;
     while (remaining > 0) {
       result.setUTCDate(result.getUTCDate() - 1);
-      const jsDay = result.getUTCDay();
+      const jsDay = result.getDay();            // local day-of-week
       const isoDay = jsDay === 0 ? 7 : jsDay;
       if (!weekend.includes(isoDay)) remaining--;
     }

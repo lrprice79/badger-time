@@ -268,6 +268,64 @@ describe("isToday / isYesterday / isTomorrow — DST transitions", () => {
     });
 });
 
+// ─── isWeekend / isWeekday / addBusinessDays — local vs UTC ──────────────────
+//
+// In CEST (UTC+2), local midnight Saturday Jun 20 = Jun 19 22:00 UTC (Friday UTC).
+// With getUTCDay() the old code saw "Friday" and said isWeekend=false — wrong.
+// With getDay() the new code sees "Saturday" locally and says isWeekend=true — correct.
+//
+// addBusinessDays from local Friday midnight (= Thursday UTC):
+//   Old code: first step lands on local Saturday midnight (= Friday UTC) → not a
+//   weekend in UTC → immediately returns a Saturday local date as a "business day". WRONG.
+//   New code: sees Saturday locally → skips it → skips Sunday → returns Monday. CORRECT.
+
+describe("isWeekend / isWeekday / isBusinessDay — local vs UTC in CEST", () => {
+
+    it("local Saturday midnight is a weekend (not Friday UTC)", () => {
+        // Jun 20 00:00 CEST = Jun 19 22:00 UTC — getUTCDay() says Friday, getDay() says Saturday
+        const saturday = Badger.fromLocal("2026-06-20", "00:00");
+        expect(saturday.isWeekend()).toBe(true);
+        expect(saturday.isWeekday()).toBe(false);
+        expect(saturday.isBusinessDay()).toBe(false);
+    });
+
+    it("local Sunday midnight is a weekend (not Saturday UTC)", () => {
+        // Jun 21 00:00 CEST = Jun 20 22:00 UTC — getUTCDay() says Saturday, getDay() says Sunday
+        const sunday = Badger.fromLocal("2026-06-21", "00:00");
+        expect(sunday.isWeekend()).toBe(true);
+        expect(sunday.isWeekday()).toBe(false);
+        expect(sunday.isBusinessDay()).toBe(false);
+    });
+
+    it("local Monday midnight is a business day (not Sunday UTC)", () => {
+        // Jun 22 00:00 CEST = Jun 21 22:00 UTC — getUTCDay() says Sunday, getDay() says Monday
+        const monday = Badger.fromLocal("2026-06-22", "00:00");
+        expect(monday.isWeekend()).toBe(false);
+        expect(monday.isWeekday()).toBe(true);
+        expect(monday.isBusinessDay()).toBe(true);
+    });
+
+    it("addBusinessDays(1) from local Friday midnight skips Saturday+Sunday, lands on Monday", () => {
+        // Jun 19 00:00 CEST = Jun 18 22:00 UTC (Thursday UTC).
+        // Old getUTCDay() code: first step = Jun 19 22:00 UTC = Jun 20 CEST = Saturday locally, but
+        // getUTCDay() says Friday → counted as business day → returned Saturday local. WRONG.
+        // New getDay() code: correctly sees Saturday → skips → skips Sunday → returns Monday.
+        const friday = Badger.fromLocal("2026-06-19", "00:00");
+        const result = friday.addBusinessDays(1);
+        expect(result.day).toBe(22);    // Monday June 22 — not Saturday June 20
+        expect(result.month).toBe(6);
+        expect(result.dayOfWeek).toBe(1); // 1 = Monday
+    });
+
+    it("subtractBusinessDays(1) from local Monday midnight skips Sunday+Saturday, lands on Friday", () => {
+        const monday = Badger.fromLocal("2026-06-22", "00:00");
+        const result = monday.subtractBusinessDays(1);
+        expect(result.day).toBe(19);    // Friday June 19
+        expect(result.month).toBe(6);
+        expect(result.dayOfWeek).toBe(5); // 5 = Friday
+    });
+});
+
 // ─── getWeekNumber around spring-forward ─────────────────────────────────────
 
 describe("getWeekNumber — around spring-forward", () => {

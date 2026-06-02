@@ -224,8 +224,8 @@ export class BadgerSett extends Intl.DateTimeFormat {
         const locObj = new Intl.Locale(this.resolvedOptions().locale);
         /* v8 ignore next 1 */
         const weekend: number[] = (locObj as any).weekInfo?.weekend ?? [6, 7];
-        // JS getUTCDay: 0=Sun…6=Sat → ISO: Sun=7, else same
-        const jsDay = this.currentDate.getUTCDay();
+        // Use local getDay() — consistent with Badger.isWeekend and the .dayOfWeek getter.
+        const jsDay = this.currentDate.getDay();
         const isoDay = jsDay === 0 ? 7 : jsDay;
         return weekend.includes(isoDay);
     }
