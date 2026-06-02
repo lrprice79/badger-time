@@ -282,13 +282,13 @@ export class BadgerSett extends Intl.DateTimeFormat {
      *
      * @example
      * ```ts
-     * Sett(new Date(), new Intl.Locale("en-GB")).formatCountdown(Badger("2026-12-25"))
+     * Sett(new Date(), new Intl.Locale("en-GB")).formatCountdown(new Date("2026-12-25"))
      * // "206 days, 3 hours, 14 minutes, and 22 seconds"  — or null if past
      * ```
      */
     /* v8 ignore next 6 — Intl.DurationFormat only available in Node 24+; covered by CI */
-    formatCountdown(target: Badger): string | null {
-        const remaining = target.countdown(this.currentDate);
+    formatCountdown(target: Date): string | null {
+        const remaining = new Badger(target).countdown(this.currentDate);
         if (!remaining) return null;
         return this.formatDuration(remaining);
     }

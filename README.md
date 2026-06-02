@@ -67,7 +67,7 @@ Sett(order.deliveryTime).formatRelative()    // "in 2 hours"
 Sett(order.deliveryTime).formatTimeOnly()    // "03:30:45 PM"  ← 12h for en-US, auto-detected
 
 // Countdown timer
-Sett(new Date()).formatCountdown(Badger("2026-12-25"))
+Sett(new Date()).formatCountdown(new Date("2026-12-25"))
 // "193 days, 4 hours, 22 minutes, and 11 seconds"  — or null if past
 ```
 
@@ -288,7 +288,7 @@ Badger("2026-12-25").countdown(new Date("2026-06-01T00:00:00Z"))
 // { days: 207, hours: 0, minutes: 0, seconds: 0 }
 
 // Pair with Sett.formatCountdown() for a formatted display string
-Sett(new Date()).formatCountdown(Badger("2026-12-25"))
+Sett(new Date()).formatCountdown(new Date("2026-12-25"))
 // "193 days, 4 hours, 22 minutes, and 11 seconds"  (Node 24+ / modern browsers)
 // null if past
 ```
@@ -543,10 +543,10 @@ Sett(new Date()).formatDuration({ minutes })
 `formatCountdown()` combines `Badger.countdown()` and `formatDuration()` into one call. Returns `null` if the date is in the past — TypeScript enforces you handle it.
 
 ```ts
-Sett(new Date()).formatCountdown(Badger("2026-12-25"))
+Sett(new Date()).formatCountdown(new Date("2026-12-25"))
 // "193 days, 4 hours, 22 minutes, and 11 seconds"
 
-Sett(new Date()).formatCountdown(Badger("2025-01-01"))
+Sett(new Date()).formatCountdown(new Date("2025-01-01"))
 // null — date is in the past
 ```
 
@@ -558,7 +558,7 @@ function CountdownLabel({ endsAt }: { endsAt: string }) {
 
     useEffect(() => {
         const tick = () => setLabel(
-            Sett(new Date()).formatCountdown(Badger(endsAt)) ?? "Expired"
+            Sett(new Date()).formatCountdown(new Date(endsAt)) ?? "Expired"
         );
         tick();
         const id = setInterval(tick, 1000);
@@ -729,7 +729,7 @@ Badger(order.dueAt).diff(Badger(), "minute")
 Sett(order.dueAt, order.locale).formatTimeOnly()
 
 // Countdown display
-Sett(new Date(), order.locale).formatCountdown(Badger(order.dueAt))
+Sett(new Date(), order.locale).formatCountdown(new Date(order.dueAt))
 // "3 hours and 22 minutes"  — or null if already past due
 ```
 
@@ -771,7 +771,7 @@ function EventBanner({ eventDate }: { eventDate: string }) {
 
     useEffect(() => {
         const tick = () => setLabel(
-            Sett(new Date()).formatCountdown(Badger(eventDate)) ?? "Event has started!"
+            Sett(new Date()).formatCountdown(new Date(eventDate)) ?? "Event has started!"
         );
         tick();
         const id = setInterval(tick, 1000);
