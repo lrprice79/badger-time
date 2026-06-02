@@ -762,6 +762,63 @@ export class Badger {
     return !this.isWeekend();
   }
 
+  // --- Business days ---
+
+  /**
+   * Returns the weekend day numbers (ISO: 1=Mon…7=Sun) for the given locale.
+   * Falls back to [6, 7] (Sat, Sun) when weekInfo is unavailable.
+   */
+  private getWeekend(locale?: Intl.Locale): number[] {
+    /* v8 ignore next 2 */
+    if (!locale) return [6, 7];
+    return (locale as any).weekInfo?.weekend ?? [6, 7];
+  }
+
+  /**
+   * Returns `true` if the date is a business day in the given locale.
+   * Defaults to Saturday+Sunday as the weekend when no locale is provided.
+   */
+  isBusinessDay(locale?: Intl.Locale): boolean {
+    const weekend = this.getWeekend(locale);
+    const jsDay = this.currentDate.getUTCDay();
+    const isoDay = jsDay === 0 ? 7 : jsDay;
+    return !weekend.includes(isoDay);
+  }
+
+  /**
+   * Returns a new `Badger` that is `n` business days after this date,
+   * skipping weekend days as defined by the given locale.
+   */
+  addBusinessDays(n: number, locale?: Intl.Locale): Badger {
+    const weekend = this.getWeekend(locale);
+    let result = new Date(this.currentDate);
+    let remaining = n;
+    while (remaining > 0) {
+      result.setUTCDate(result.getUTCDate() + 1);
+      const jsDay = result.getUTCDay();
+      const isoDay = jsDay === 0 ? 7 : jsDay;
+      if (!weekend.includes(isoDay)) remaining--;
+    }
+    return new Badger(result);
+  }
+
+  /**
+   * Returns a new `Badger` that is `n` business days before this date,
+   * skipping weekend days as defined by the given locale.
+   */
+  subtractBusinessDays(n: number, locale?: Intl.Locale): Badger {
+    const weekend = this.getWeekend(locale);
+    let result = new Date(this.currentDate);
+    let remaining = n;
+    while (remaining > 0) {
+      result.setUTCDate(result.getUTCDate() - 1);
+      const jsDay = result.getUTCDay();
+      const isoDay = jsDay === 0 ? 7 : jsDay;
+      if (!weekend.includes(isoDay)) remaining--;
+    }
+    return new Badger(result);
+  }
+
   // --- Diff ---
 
   /**

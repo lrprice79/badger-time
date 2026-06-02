@@ -1363,3 +1363,127 @@ describe("toDate", () => {
         expect(dt.year).toBe(2026);
     });
 });
+
+// ─── isBusinessDay ────────────────────────────────────────────────────────────
+// June 2026: Mon=8, Tue=9, Wed=10, Thu=11, Fri=12, Sat=13, Sun=14
+// en-GB weekend: Sat+Sun (ISO 6,7)
+// ar-SA weekend: Fri+Sat (ISO 5,6) — Sunday is a workday
+
+describe("isBusinessDay", () => {
+    it("Monday is a business day (en-GB)", () => {
+        expect(new Badger("2026-06-08T12:00:00Z").isBusinessDay()).toBe(true);
+    });
+
+    it("Friday is a business day (en-GB)", () => {
+        expect(new Badger("2026-06-12T12:00:00Z").isBusinessDay()).toBe(true);
+    });
+
+    it("Saturday is not a business day (en-GB)", () => {
+        expect(new Badger("2026-06-13T12:00:00Z").isBusinessDay()).toBe(false);
+    });
+
+    it("Sunday is not a business day (en-GB)", () => {
+        expect(new Badger("2026-06-14T12:00:00Z").isBusinessDay()).toBe(false);
+    });
+
+    it("Friday is not a business day (ar-SA)", () => {
+        expect(new Badger("2026-06-12T12:00:00Z").isBusinessDay(new Intl.Locale("ar-SA"))).toBe(false);
+    });
+
+    it("Saturday is not a business day (ar-SA)", () => {
+        expect(new Badger("2026-06-13T12:00:00Z").isBusinessDay(new Intl.Locale("ar-SA"))).toBe(false);
+    });
+
+    it("Sunday is a business day (ar-SA)", () => {
+        expect(new Badger("2026-06-14T12:00:00Z").isBusinessDay(new Intl.Locale("ar-SA"))).toBe(true);
+    });
+
+    it("Monday is a business day (ar-SA)", () => {
+        expect(new Badger("2026-06-08T12:00:00Z").isBusinessDay(new Intl.Locale("ar-SA"))).toBe(true);
+    });
+});
+
+// ─── addBusinessDays ──────────────────────────────────────────────────────────
+// Starting Mon Jun 8:
+//   +1 = Tue Jun 9, +5 = Mon Jun 15, +6 = Tue Jun 16
+// Starting Thu Jun 11:
+//   +1 = Fri Jun 12, +2 = Mon Jun 15  (skips Sat+Sun)
+// Starting Fri Jun 12:
+//   +1 = Mon Jun 15  (skips Sat+Sun)
+
+describe("addBusinessDays", () => {
+    it("adds 1 business day from Monday", () => {
+        expect(new Badger("2026-06-08T12:00:00Z").addBusinessDays(1).toISOString())
+            .toBe("2026-06-09T12:00:00.000Z");
+    });
+
+    it("adds 5 business days from Monday — lands on next Monday", () => {
+        expect(new Badger("2026-06-08T12:00:00Z").addBusinessDays(5).toISOString())
+            .toBe("2026-06-15T12:00:00.000Z");
+    });
+
+    it("skips the weekend when crossing from Thursday", () => {
+        expect(new Badger("2026-06-11T12:00:00Z").addBusinessDays(2).toISOString())
+            .toBe("2026-06-15T12:00:00.000Z");
+    });
+
+    it("skips the weekend when adding 1 from Friday", () => {
+        expect(new Badger("2026-06-12T12:00:00Z").addBusinessDays(1).toISOString())
+            .toBe("2026-06-15T12:00:00.000Z");
+    });
+
+    it("adding 0 business days returns the same day if it is a business day", () => {
+        expect(new Badger("2026-06-08T12:00:00Z").addBusinessDays(0).toISOString())
+            .toBe("2026-06-08T12:00:00.000Z");
+    });
+
+    it("skips Friday when adding from Thursday (ar-SA)", () => {
+        // Thu Jun 11 + 1 business day ar-SA → Sun Jun 14 (skips Fri+Sat)
+        expect(new Badger("2026-06-11T12:00:00Z").addBusinessDays(1, new Intl.Locale("ar-SA")).toISOString())
+            .toBe("2026-06-14T12:00:00.000Z");
+    });
+
+    it("preserves time of day", () => {
+        expect(new Badger("2026-06-08T09:30:00Z").addBusinessDays(1).toISOString())
+            .toBe("2026-06-09T09:30:00.000Z");
+    });
+});
+
+// ─── subtractBusinessDays ─────────────────────────────────────────────────────
+// Starting Mon Jun 15:
+//   -1 = Fri Jun 12, -5 = Mon Jun 8
+// Starting Mon Jun 8:
+//   -1 = Fri Jun 5  (skips Sat+Sun going backwards)
+
+describe("subtractBusinessDays", () => {
+    it("subtracts 1 business day from Monday — lands on Friday", () => {
+        expect(new Badger("2026-06-15T12:00:00Z").subtractBusinessDays(1).toISOString())
+            .toBe("2026-06-12T12:00:00.000Z");
+    });
+
+    it("subtracts 5 business days from Monday — lands on previous Monday", () => {
+        expect(new Badger("2026-06-15T12:00:00Z").subtractBusinessDays(5).toISOString())
+            .toBe("2026-06-08T12:00:00.000Z");
+    });
+
+    it("skips the weekend going backwards from Monday", () => {
+        expect(new Badger("2026-06-08T12:00:00Z").subtractBusinessDays(1).toISOString())
+            .toBe("2026-06-05T12:00:00.000Z");
+    });
+
+    it("subtracting 0 business days returns the same day", () => {
+        expect(new Badger("2026-06-08T12:00:00Z").subtractBusinessDays(0).toISOString())
+            .toBe("2026-06-08T12:00:00.000Z");
+    });
+
+    it("skips Friday+Saturday going backwards (ar-SA)", () => {
+        // Sun Jun 14 - 1 business day ar-SA → Thu Jun 11 (skips Sat+Fri going back)
+        expect(new Badger("2026-06-14T12:00:00Z").subtractBusinessDays(1, new Intl.Locale("ar-SA")).toISOString())
+            .toBe("2026-06-11T12:00:00.000Z");
+    });
+
+    it("preserves time of day", () => {
+        expect(new Badger("2026-06-15T09:30:00Z").subtractBusinessDays(1).toISOString())
+            .toBe("2026-06-12T09:30:00.000Z");
+    });
+});
