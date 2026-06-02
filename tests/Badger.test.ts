@@ -1157,6 +1157,9 @@ describe("daysInYear", () => {
     it("leap year → 366", () => expect(new Badger("2024-06-15T00:00:00Z").daysInYear()).toBe(366));
     it("century non-leap → 365", () => expect(new Badger("1900-01-01T00:00:00Z").daysInYear()).toBe(365));
     it("400-year leap → 366", () => expect(new Badger("2000-06-15T00:00:00Z").daysInYear()).toBe(366));
+    it("invalid date → NaN (not 365, which isLeapYear returns false for NaN)", () => {
+        expect(new Badger("not-a-date").daysInYear()).toBeNaN();
+    });
 });
 
 // ─── startOf/endOf quarter ────────────────────────────────────────────────────

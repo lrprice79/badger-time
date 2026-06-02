@@ -872,3 +872,32 @@ describe("formatRelative — invalid date guards", () => {
         vi.useRealTimers();
     });
 });
+
+// ─── BadgerSett constructor — empty string ────────────────────────────────────
+// Mirrors the same fix in Badger: "" is falsy so the ternary would have fallen
+// through to new Date() (current time). Now produces an Invalid Date instead.
+
+describe("BadgerSett constructor — empty string", () => {
+    it('new BadgerSett("") has an invalid currentDate', () => {
+        const bs = new BadgerSett("");
+        expect(isNaN(bs.currentDate.getTime())).toBe(true);
+    });
+
+    it('new BadgerSett("") throws when formatForBackend is called', () => {
+        const bs = new BadgerSett("");
+        expect(() => bs.formatForBackend()).toThrow();
+    });
+
+    it("valid string still works", () => {
+        const bs = new BadgerSett("2026-06-15T12:00:00Z");
+        expect(bs.currentDate.toISOString()).toBe("2026-06-15T12:00:00.000Z");
+    });
+
+    it("omitting date still defaults to current time", () => {
+        const before = Date.now();
+        const bs = new BadgerSett();
+        const after = Date.now();
+        expect(bs.currentDate.getTime()).toBeGreaterThanOrEqual(before);
+        expect(bs.currentDate.getTime()).toBeLessThanOrEqual(after);
+    });
+});

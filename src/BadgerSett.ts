@@ -45,7 +45,7 @@ export class BadgerSett extends Intl.DateTimeFormat {
                 : defaultDateFormatOptions
         );
         super(resolvedLocale.baseName, resolvedOptions);
-        this.currentDate = date ? new Date(date) : new Date();
+        this.currentDate = date === "" ? new Date(NaN) : (date ? new Date(date) : new Date());
     }
 
     /** Returns the date as a UTC ISO 8601 string (e.g. `"2026-03-15T09:30:45.000Z"`), suitable for backend APIs. */

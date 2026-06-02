@@ -327,8 +327,9 @@ export class Badger {
     return isoWeekNumber(this.currentDate);
   }
 
-  /** Returns the number of days in the current year (365 or 366). */
+  /** Returns the number of days in the current year (365 or 366). Returns `NaN` for invalid dates. */
   daysInYear(): number {
+    if (!this.isValid()) return NaN;
     return this.isLeapYear() ? 366 : 365;
   }
 
