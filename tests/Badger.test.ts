@@ -1435,6 +1435,21 @@ describe("Badger.range", () => {
         expect(result).toHaveLength(1);
         expect(result[0].toISOString()).toBe("2026-06-01T00:00:00.000Z");
     });
+
+    it("always normalises each step to midnight UTC regardless of start time", () => {
+        const result = Badger.range("2026-06-01T09:30:00Z", "2026-06-04T09:30:00Z", "day");
+        expect(result).toHaveLength(3);
+        expect(result[0].toISOString()).toBe("2026-06-01T00:00:00.000Z");
+        expect(result[1].toISOString()).toBe("2026-06-02T00:00:00.000Z");
+        expect(result[2].toISOString()).toBe("2026-06-03T00:00:00.000Z");
+    });
+
+    it("end boundary is day-level — time on end date does not pull in an extra day", () => {
+        // end is Jun 4 at 09:30 — Jun 4 midnight should NOT be included
+        const result = Badger.range("2026-06-01T00:00:00Z", "2026-06-04T09:30:00Z", "day");
+        expect(result).toHaveLength(3);
+        expect(result[result.length - 1].toISOString()).toBe("2026-06-03T00:00:00.000Z");
+    });
 });
 
 // ─── isBusinessDay ────────────────────────────────────────────────────────────
