@@ -147,6 +147,35 @@ export class Badger {
     return new Badger(new Date(year ?? 0, (month ?? 1) - 1, day ?? 1, h ?? 0, m ?? 0, 0, 0));
   }
 
+  /**
+   * Returns an array of `Badger` instances from `start` (inclusive) to `end` (exclusive),
+   * stepping by the given unit (`"day"`, `"week"`, or `"month"`).
+   *
+   * @example
+   * ```ts
+   * Badger.range("2026-06-01", "2026-06-08", "day")
+   * // → [Jun 1, Jun 2, Jun 3, Jun 4, Jun 5, Jun 6, Jun 7]
+   *
+   * Badger.range(start, end, "week") // one entry per week
+   * Badger.range(start, end, "month") // one entry per month
+   * ```
+   */
+  static range(
+    start: string | Date | Badger,
+    end: string | Date | Badger,
+    unit: "day" | "week" | "month"
+  ): Badger[] {
+    const s = start instanceof Badger ? start : new Badger(start);
+    const e = end instanceof Badger ? end : new Badger(end);
+    const results: Badger[] = [];
+    let current = s;
+    while (current.isBefore(e)) {
+      results.push(current);
+      current = current.add(1, unit);
+    }
+    return results;
+  }
+
   /** Returns `true` if the date is valid. */
   isValid(): boolean {
     return !isNaN(this.currentDate.getTime());

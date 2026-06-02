@@ -1364,6 +1364,79 @@ describe("toDate", () => {
     });
 });
 
+// ─── Badger.range ────────────────────────────────────────────────────────────
+// Returns an array of Badger instances from start (inclusive) to end (exclusive).
+// Each step is one unit apart. Consistent with isBetween — end is not included.
+
+describe("Badger.range", () => {
+    it("returns daily steps between two dates", () => {
+        const result = Badger.range("2026-06-01", "2026-06-05", "day");
+        expect(result).toHaveLength(4);
+        expect(result[0].toISOString()).toBe("2026-06-01T00:00:00.000Z");
+        expect(result[1].toISOString()).toBe("2026-06-02T00:00:00.000Z");
+        expect(result[2].toISOString()).toBe("2026-06-03T00:00:00.000Z");
+        expect(result[3].toISOString()).toBe("2026-06-04T00:00:00.000Z");
+    });
+
+    it("end date is excluded", () => {
+        const result = Badger.range("2026-06-01", "2026-06-03", "day");
+        expect(result).toHaveLength(2);
+        expect(result.map(d => d.toISOString())).not.toContain("2026-06-03T00:00:00.000Z");
+    });
+
+    it("returns weekly steps", () => {
+        const result = Badger.range("2026-06-01", "2026-06-22", "week");
+        expect(result).toHaveLength(3);
+        expect(result[0].toISOString()).toBe("2026-06-01T00:00:00.000Z");
+        expect(result[1].toISOString()).toBe("2026-06-08T00:00:00.000Z");
+        expect(result[2].toISOString()).toBe("2026-06-15T00:00:00.000Z");
+    });
+
+    it("returns monthly steps", () => {
+        const result = Badger.range("2026-01-01", "2026-04-01", "month");
+        expect(result).toHaveLength(3);
+        expect(result[0].toISOString()).toBe("2026-01-01T00:00:00.000Z");
+        expect(result[1].toISOString()).toBe("2026-02-01T00:00:00.000Z");
+        expect(result[2].toISOString()).toBe("2026-03-01T00:00:00.000Z");
+    });
+
+    it("returns empty array when start equals end", () => {
+        const result = Badger.range("2026-06-01", "2026-06-01", "day");
+        expect(result).toHaveLength(0);
+    });
+
+    it("returns empty array when start is after end", () => {
+        const result = Badger.range("2026-06-05", "2026-06-01", "day");
+        expect(result).toHaveLength(0);
+    });
+
+    it("accepts Badger instances as start and end", () => {
+        const start = new Badger("2026-06-01");
+        const end   = new Badger("2026-06-04");
+        const result = Badger.range(start, end, "day");
+        expect(result).toHaveLength(3);
+        expect(result[0].toISOString()).toBe("2026-06-01T00:00:00.000Z");
+    });
+
+    it("accepts Date objects as start and end", () => {
+        const start = new Date("2026-06-01T00:00:00Z");
+        const end   = new Date("2026-06-04T00:00:00Z");
+        const result = Badger.range(start, end, "day");
+        expect(result).toHaveLength(3);
+    });
+
+    it("each element is a Badger instance", () => {
+        const result = Badger.range("2026-06-01", "2026-06-04", "day");
+        result.forEach(d => expect(d).toBeInstanceOf(Badger));
+    });
+
+    it("single day range returns one element", () => {
+        const result = Badger.range("2026-06-01", "2026-06-02", "day");
+        expect(result).toHaveLength(1);
+        expect(result[0].toISOString()).toBe("2026-06-01T00:00:00.000Z");
+    });
+});
+
 // ─── isBusinessDay ────────────────────────────────────────────────────────────
 // June 2026: Mon=8, Tue=9, Wed=10, Thu=11, Fri=12, Sat=13, Sun=14
 // en-GB weekend: Sat+Sun (ISO 6,7)
