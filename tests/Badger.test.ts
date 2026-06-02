@@ -1468,6 +1468,68 @@ describe("Badger.range", () => {
     });
 });
 
+// ─── countdown ───────────────────────────────────────────────────────────────
+// Returns { days, hours, minutes, seconds } remaining until this date.
+// All values are non-negative whole numbers.
+// Optionally pass a relativeTo date — defaults to now.
+
+describe("countdown", () => {
+    it("returns correct days, hours, minutes, seconds", () => {
+        const target = new Badger("2026-06-17T02:30:45Z");
+        const anchor = new Badger("2026-06-15T00:00:00Z");
+        expect(target.countdown(anchor.toDate())).toEqual({ days: 2, hours: 2, minutes: 30, seconds: 45 });
+    });
+
+    it("exactly one day remaining", () => {
+        const target = new Badger("2026-06-16T00:00:00Z");
+        const anchor = new Badger("2026-06-15T00:00:00Z");
+        expect(target.countdown(anchor.toDate())).toEqual({ days: 1, hours: 0, minutes: 0, seconds: 0 });
+    });
+
+    it("less than one hour remaining", () => {
+        const target = new Badger("2026-06-15T00:45:30Z");
+        const anchor = new Badger("2026-06-15T00:00:00Z");
+        expect(target.countdown(anchor.toDate())).toEqual({ days: 0, hours: 0, minutes: 45, seconds: 30 });
+    });
+
+    it("returns all zeros when target equals anchor", () => {
+        const target = new Badger("2026-06-15T00:00:00Z");
+        expect(target.countdown(new Date("2026-06-15T00:00:00Z"))).toEqual({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+    });
+
+    it("returns all zeros when target is in the past", () => {
+        const target = new Badger("2026-06-14T00:00:00Z");
+        const anchor = new Badger("2026-06-15T00:00:00Z");
+        expect(target.countdown(anchor.toDate())).toEqual({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+    });
+
+    it("hours, minutes, seconds do not overflow their unit", () => {
+        // 1 day + 1 hour + 1 minute + 1 second
+        const target = new Badger("2026-06-16T01:01:01Z");
+        const anchor = new Badger("2026-06-15T00:00:00Z");
+        const result = target.countdown(anchor.toDate());
+        expect(result.hours).toBeLessThan(24);
+        expect(result.minutes).toBeLessThan(60);
+        expect(result.seconds).toBeLessThan(60);
+        expect(result).toEqual({ days: 1, hours: 1, minutes: 1, seconds: 1 });
+    });
+
+    it("result keys are always whole numbers", () => {
+        const target = new Badger("2026-06-17T02:30:45Z");
+        const anchor = new Badger("2026-06-15T00:00:00Z");
+        const result = target.countdown(anchor.toDate());
+        Object.values(result).forEach(v => expect(Number.isInteger(v)).toBe(true));
+    });
+
+    it("no arg defaults to now — future date returns non-zero countdown", () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-06-15T00:00:00Z"));
+        const result = new Badger("2026-06-16T00:00:00Z").countdown();
+        expect(result).toEqual({ days: 1, hours: 0, minutes: 0, seconds: 0 });
+        vi.useRealTimers();
+    });
+});
+
 // ─── isBusinessDay ────────────────────────────────────────────────────────────
 // June 2026: Mon=8, Tue=9, Wed=10, Thu=11, Fri=12, Sat=13, Sun=14
 // en-GB weekend: Sat+Sun (ISO 6,7)

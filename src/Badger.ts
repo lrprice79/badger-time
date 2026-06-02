@@ -792,6 +792,34 @@ export class Badger {
     return !this.isWeekend();
   }
 
+  // --- Countdown ---
+
+  /**
+   * Returns the time remaining until this date as `{ days, hours, minutes, seconds }`.
+   * All values are non-negative whole numbers.
+   * Returns all zeros if the date is in the past or equal to `relativeTo`.
+   *
+   * @param relativeTo - Anchor date to count down from. Defaults to `new Date()`.
+   *
+   * @example
+   * ```ts
+   * Badger("2026-12-25").countdown()
+   * // { days: 207, hours: 4, minutes: 32, seconds: 11 }
+   *
+   * // Pair with Sett().formatDuration() for a display string
+   * Sett(new Date(), locale).formatDuration(Badger("2026-12-25").countdown())
+   * ```
+   */
+  countdown(relativeTo?: Date): { days: number; hours: number; minutes: number; seconds: number } {
+    const now = relativeTo ?? new Date();
+    const diffMs = Math.max(0, this.currentDate.getTime() - now.getTime());
+    const days    = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const hours   = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+    const minutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((diffMs % (1000 * 60)) / 1000);
+    return { days, hours, minutes, seconds };
+  }
+
   // --- Business days ---
 
   /**
