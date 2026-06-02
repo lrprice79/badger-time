@@ -106,6 +106,7 @@ export class Badger {
    * ```
    */
   static min(...dates: Badger[]): Badger {
+    if (dates.length === 0) throw new RangeError("Badger.min() requires at least one date");
     return dates.reduce((a, b) => (a.isBefore(b) ? a : b));
   }
 
@@ -118,6 +119,7 @@ export class Badger {
    * ```
    */
   static max(...dates: Badger[]): Badger {
+    if (dates.length === 0) throw new RangeError("Badger.max() requires at least one date");
     return dates.reduce((a, b) => (a.isAfter(b) ? a : b));
   }
 
@@ -363,6 +365,9 @@ export class Badger {
         d.setMonth(0, 1);
         d.setHours(0, 0, 0, 0);
         break;
+      case "millisecond":
+        // Millisecond is the finest unit — already at full precision, return clone unchanged.
+        break;
     }
     return clone;
   }
@@ -405,6 +410,9 @@ export class Badger {
       case "year":
         d.setMonth(11, 31);
         d.setHours(23, 59, 59, 999);
+        break;
+      case "millisecond":
+        // Millisecond is the finest unit — already at full precision, return clone unchanged.
         break;
     }
     return clone;
@@ -505,6 +513,7 @@ export class Badger {
    * ```
    */
   set(unit: Exclude<UnitOfTime, "week" | "quarter">, value: number): Badger {
+    if (!Number.isFinite(value)) throw new RangeError(`set(${unit}): value must be a finite number, got ${value}`);
     if (unit === "month" && (value < 1 || value > 12)) throw new RangeError(`month must be 1–12, got ${value}`);
     if (unit === "day" && (value < 1 || value > 31)) throw new RangeError(`day must be 1–31, got ${value}`);
     if (unit === "hour" && (value < 0 || value > 23)) throw new RangeError(`hour must be 0–23, got ${value}`);
@@ -797,7 +806,7 @@ export class Badger {
   /**
    * Returns the time remaining until this date as `{ days, hours, minutes, seconds }`.
    * All values are non-negative whole numbers.
-   * Returns all zeros if the date is in the past or equal to `relativeTo`.
+   * Returns `null` if the date is in the past or equal to `relativeTo`.
    *
    * @param relativeTo - Anchor date to count down from. Defaults to `new Date()`.
    *
@@ -849,6 +858,7 @@ export class Badger {
    * skipping weekend days as defined by the given locale.
    */
   addBusinessDays(n: number, locale?: Intl.Locale): Badger {
+    if (Math.sign(n) < 0) throw new RangeError(`addBusinessDays: n must be non-negative, got ${n}`);
     const weekend = this.getWeekend(locale);
     let result = new Date(this.currentDate);
     let remaining = n;
@@ -866,6 +876,7 @@ export class Badger {
    * skipping weekend days as defined by the given locale.
    */
   subtractBusinessDays(n: number, locale?: Intl.Locale): Badger {
+    if (Math.sign(n) < 0) throw new RangeError(`subtractBusinessDays: n must be non-negative, got ${n}`);
     const weekend = this.getWeekend(locale);
     let result = new Date(this.currentDate);
     let remaining = n;

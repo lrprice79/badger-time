@@ -249,13 +249,6 @@ export class BadgerSett extends Intl.DateTimeFormat {
     }
 
     /**
-     * Formats a duration object using `Intl.DurationFormat` in the configured locale.
-     * Throws if `Intl.DurationFormat` is unavailable (Node < 24, older browsers).
-     *
-     * @example
-     * bs.formatDuration({ hours: 3, minutes: 22 }) // "3 hours and 22 minutes"
-     */
-    /**
      * Convenience method — calls `countdown()` on the given `Badger` date and
      * formats the result with `Intl.DurationFormat` in the configured locale.
      * Returns `null` if the date is in the past or equal to now.

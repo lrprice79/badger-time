@@ -1660,3 +1660,85 @@ describe("subtractBusinessDays", () => {
             .toBe("2026-06-12T09:30:00.000Z");
     });
 });
+
+// ─── Audit fixes ──────────────────────────────────────────────────────────────
+
+describe("Badger.min / Badger.max — empty args", () => {
+    it("min() with no arguments throws RangeError", () => {
+        expect(() => (Badger.min as any)()).toThrow(RangeError);
+    });
+
+    it("max() with no arguments throws RangeError", () => {
+        expect(() => (Badger.max as any)()).toThrow(RangeError);
+    });
+
+    it("min() with a single argument returns that argument", () => {
+        const dt = new Badger("2026-06-15T12:00:00Z");
+        expect(Badger.min(dt).toISOString()).toBe(dt.toISOString());
+    });
+
+    it("max() with a single argument returns that argument", () => {
+        const dt = new Badger("2026-06-15T12:00:00Z");
+        expect(Badger.max(dt).toISOString()).toBe(dt.toISOString());
+    });
+});
+
+describe("set() — NaN and Infinity guard", () => {
+    const dt = new Badger("2026-06-15T12:30:45Z");
+
+    it("set(hour, NaN) throws RangeError", () => {
+        expect(() => dt.set("hour", NaN)).toThrow(RangeError);
+    });
+
+    it("set(hour, Infinity) throws RangeError", () => {
+        expect(() => dt.set("hour", Infinity)).toThrow(RangeError);
+    });
+
+    it("set(year, NaN) throws RangeError", () => {
+        expect(() => dt.set("year", NaN)).toThrow(RangeError);
+    });
+
+    it("set(minute, NaN) throws RangeError", () => {
+        expect(() => dt.set("minute", NaN)).toThrow(RangeError);
+    });
+
+    it("set(year, 2030) still works normally", () => {
+        expect(dt.set("year", 2030).year).toBe(2030);
+    });
+});
+
+describe("addBusinessDays / subtractBusinessDays — negative n", () => {
+    const dt = new Badger("2026-06-15T12:00:00Z");
+
+    it("addBusinessDays(-1) throws RangeError", () => {
+        expect(() => dt.addBusinessDays(-1)).toThrow(RangeError);
+    });
+
+    it("subtractBusinessDays(-1) throws RangeError", () => {
+        expect(() => dt.subtractBusinessDays(-1)).toThrow(RangeError);
+    });
+
+    it("addBusinessDays(0) still returns same date", () => {
+        expect(dt.addBusinessDays(0).toISOString()).toBe(dt.toISOString());
+    });
+
+    it("subtractBusinessDays(0) still returns same date", () => {
+        expect(dt.subtractBusinessDays(0).toISOString()).toBe(dt.toISOString());
+    });
+});
+
+describe("startOf / endOf millisecond — explicit no-op", () => {
+    const dt = new Badger("2026-06-15T12:30:45.500Z");
+
+    it("startOf(millisecond) returns an independent clone at the same instant", () => {
+        const result = dt.startOf("millisecond");
+        expect(result.toISOString()).toBe(dt.toISOString());
+        expect(result).not.toBe(dt); // different instance
+    });
+
+    it("endOf(millisecond) returns an independent clone at the same instant", () => {
+        const result = dt.endOf("millisecond");
+        expect(result.toISOString()).toBe(dt.toISOString());
+        expect(result).not.toBe(dt);
+    });
+});
