@@ -847,3 +847,28 @@ describe("BadgerSettings.subscribe", () => {
         expect(calls).toEqual(["sv-SE"]);
     });
 });
+
+// ─── formatRelative — invalid date guards ─────────────────────────────────────
+// Previously all NaN < N checks fail and the function falls to the "year" else
+// branch, calling rtf.format(NaN, "year") which returns garbage like "NaN years
+// ago". Now throws RangeError immediately for invalid currentDate or relativeTo.
+
+describe("formatRelative — invalid date guards", () => {
+    it("throws RangeError when currentDate is invalid", () => {
+        const bs = new BadgerSett(new Date("not-a-date"));
+        expect(() => bs.formatRelative()).toThrow(RangeError);
+    });
+
+    it("throws RangeError when relativeTo is invalid", () => {
+        const bs = new BadgerSett(new Date("2026-06-15T12:00:00Z"));
+        expect(() => bs.formatRelative(new Date("not-a-date"))).toThrow(RangeError);
+    });
+
+    it("valid currentDate and default relativeTo still works", () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-06-15T12:00:00Z"));
+        const bs = new BadgerSett(new Date("2026-06-15T12:00:00Z"));
+        expect(bs.formatRelative()).toBe("now");
+        vi.useRealTimers();
+    });
+});

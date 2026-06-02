@@ -282,6 +282,8 @@ export class BadgerSett extends Intl.DateTimeFormat {
      *  Month and year thresholds are calendar-based, not approximated. */
     formatRelative(relativeTo?: Date): string {
         const now = relativeTo ?? new Date();
+        if (isNaN(this.currentDate.getTime())) throw new RangeError("formatRelative: currentDate is not a valid date");
+        if (isNaN(now.getTime())) throw new RangeError("formatRelative: relativeTo is not a valid date");
         const diffMs = now.getTime() - this.currentDate.getTime();
         const absDiffMs = Math.abs(diffMs);
         const isFuture = diffMs < 0;

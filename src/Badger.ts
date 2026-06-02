@@ -88,12 +88,18 @@ export class Badger {
   constructor(dateTime?: string | Date) {
     if (dateTime instanceof Date) {
       this.currentDate = new Date(dateTime.getTime());
-    } else if (dateTime) {
-      const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(dateTime);
-      const hasTimezoneIndicator = /(?:Z|[+-]\d{2}:?\d{2})$/.test(dateTime);
-      this.currentDate = new Date(
-        isDateOnly || hasTimezoneIndicator ? dateTime : dateTime + "Z",
-      );
+    } else if (typeof dateTime === "string") {
+      if (dateTime === "") {
+        // Empty string is falsy but is still an invalid date input — produce Invalid Date
+        // so isValid() returns false rather than silently falling back to current time.
+        this.currentDate = new Date(NaN);
+      } else {
+        const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(dateTime);
+        const hasTimezoneIndicator = /(?:Z|[+-]\d{2}:?\d{2})$/.test(dateTime);
+        this.currentDate = new Date(
+          isDateOnly || hasTimezoneIndicator ? dateTime : dateTime + "Z",
+        );
+      }
     } else {
       this.currentDate = new Date(Date.now());
     }
@@ -145,10 +151,13 @@ export class Badger {
    * ```
    */
   static fromLocal(date: string, time: string): Badger {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date))
+      throw new RangeError(`fromLocal: date must be "YYYY-MM-DD", got "${date}"`);
+    if (!/^\d{2}:\d{2}$/.test(time))
+      throw new RangeError(`fromLocal: time must be "HH:mm", got "${time}"`);
     const [year, month, day] = date.split("-").map(Number);
     const [h, m] = time.split(":").map(Number);
-    /* v8 ignore next */
-    return new Badger(new Date(year ?? 0, (month ?? 1) - 1, day ?? 1, h ?? 0, m ?? 0, 0, 0));
+    return new Badger(new Date(year!, (month!) - 1, day!, h!, m!, 0, 0));
   }
 
   /**
@@ -172,6 +181,8 @@ export class Badger {
     const normalise = (d: Badger) => unit === "day" ? d.startOf("day") : d;
     const s = normalise(start instanceof Badger ? start : new Badger(start));
     const e = normalise(end instanceof Badger ? end : new Badger(end));
+    if (!s.isValid()) throw new RangeError("Badger.range: start is not a valid date");
+    if (!e.isValid()) throw new RangeError("Badger.range: end is not a valid date");
     const results: Badger[] = [];
     let current = s;
     while (current.isBefore(e)) {
@@ -459,6 +470,7 @@ export class Badger {
       );
     }
     if (unit === undefined) throw new TypeError("add: unit is required when amount is a number");
+    if (!Number.isFinite(amount)) throw new RangeError(`add: amount must be a finite number, got ${amount}`);
     return this._addUnit(amount, unit);
   }
 
@@ -582,6 +594,7 @@ export class Badger {
       return this.add(negated);
     }
     if (unit === undefined) throw new TypeError("subtract: unit is required when amount is a number");
+    if (!Number.isFinite(amount)) throw new RangeError(`subtract: amount must be a finite number, got ${amount}`);
     return this.add(-amount, unit);
   }
 
@@ -671,6 +684,8 @@ export class Badger {
         );
       case "millisecond":
         return this.currentDate.getTime() === otherDate.getTime();
+      default:
+        throw new TypeError(`isSame: unknown unit "${unit as string}"`);
     }
   }
 
@@ -804,14 +819,16 @@ export class Badger {
     return this.isSame(new Badger().add(1, "day"), "day");
   }
 
-  /** Returns `true` if the date falls on Saturday or Sunday (UTC day of week). */
+  /** Returns `true` if the date falls on Saturday or Sunday (UTC day of week). Returns `false` for invalid dates. */
   isWeekend(): boolean {
+    if (!this.isValid()) return false;
     const day = this.currentDate.getUTCDay();
     return day === 0 || day === 6;
   }
 
-  /** Returns `true` if the date falls on Monday–Friday. */
+  /** Returns `true` if the date falls on Monday–Friday. Returns `false` for invalid dates. */
   isWeekday(): boolean {
+    if (!this.isValid()) return false;
     return !this.isWeekend();
   }
 
@@ -836,6 +853,7 @@ export class Badger {
   countdown(relativeTo?: Date): { days: number; hours: number; minutes: number; seconds: number } | null {
     if (!this.isValid()) return null;
     const now = relativeTo ?? new Date();
+    if (isNaN(now.getTime())) return null;
     const diffMs = this.currentDate.getTime() - now.getTime();
     if (diffMs <= 0) return null;
     const days    = Math.floor(diffMs / (1000 * 60 * 60 * 24));
@@ -864,6 +882,7 @@ export class Badger {
    * `BadgerSettings.defaultLocale` → Saturday+Sunday.
    */
   isBusinessDay(locale?: Intl.Locale): boolean {
+    if (!this.isValid()) return false;
     const weekend = this.getWeekend(locale);
     const jsDay = this.currentDate.getUTCDay();
     const isoDay = jsDay === 0 ? 7 : jsDay;
@@ -876,6 +895,7 @@ export class Badger {
    */
   addBusinessDays(n: number, locale?: Intl.Locale): Badger {
     if (!Number.isFinite(n) || n < 0) throw new RangeError(`addBusinessDays: n must be a non-negative finite number, got ${n}`);
+    if (!this.isValid()) return this.clone();
     const weekend = this.getWeekend(locale);
     let result = new Date(this.currentDate);
     let remaining = n;
@@ -894,6 +914,7 @@ export class Badger {
    */
   subtractBusinessDays(n: number, locale?: Intl.Locale): Badger {
     if (!Number.isFinite(n) || n < 0) throw new RangeError(`subtractBusinessDays: n must be a non-negative finite number, got ${n}`);
+    if (!this.isValid()) return this.clone();
     const weekend = this.getWeekend(locale);
     let result = new Date(this.currentDate);
     let remaining = n;
@@ -983,6 +1004,8 @@ export class Badger {
         const d2 = other instanceof Badger ? other.toDate() : other;
         return d1.getFullYear() - d2.getFullYear();
       }
+      default:
+        throw new TypeError(`diff: unknown unit "${unit as string}"`);
     }
   }
 }

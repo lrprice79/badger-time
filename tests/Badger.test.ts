@@ -1925,3 +1925,218 @@ describe("clamp / isBetween — invalid bounds guard", () => {
         expect(dt.isBetween(validMin, validMax)).toBe(true);
     });
 });
+
+// ─── Constructor — empty string ───────────────────────────────────────────────
+// "" is falsy. Old code fell through to the else-branch and returned current
+// time. Now the typeof-string branch catches it and produces Invalid Date.
+
+describe("constructor — empty string", () => {
+    it('new Badger("") is invalid, not current time', () => {
+        const dt = new Badger("");
+        expect(dt.isValid()).toBe(false);
+    });
+
+    it("non-empty invalid string is still invalid", () => {
+        expect(new Badger("not-a-date").isValid()).toBe(false);
+    });
+
+    it("valid string still works after the refactor", () => {
+        expect(new Badger("2026-06-15T00:00:00Z").isValid()).toBe(true);
+    });
+});
+
+// ─── fromLocal — format validation ───────────────────────────────────────────
+// fromLocal now validates its two string arguments before parsing.
+
+describe("fromLocal — format validation", () => {
+    it('date missing dashes throws RangeError', () => {
+        expect(() => Badger.fromLocal("20260615", "10:00")).toThrow(RangeError);
+    });
+
+    it('empty date string throws RangeError', () => {
+        expect(() => Badger.fromLocal("", "10:00")).toThrow(RangeError);
+    });
+
+    it('time without colon throws RangeError', () => {
+        expect(() => Badger.fromLocal("2026-06-15", "1000")).toThrow(RangeError);
+    });
+
+    it('empty time string throws RangeError', () => {
+        expect(() => Badger.fromLocal("2026-06-15", "")).toThrow(RangeError);
+    });
+
+    it('valid inputs still work', () => {
+        const dt = Badger.fromLocal("2026-06-15", "10:30");
+        expect(dt.isValid()).toBe(true);
+        expect(dt.hour).toBe(10);
+        expect(dt.minute).toBe(30);
+    });
+});
+
+// ─── Badger.range — invalid start / end ──────────────────────────────────────
+// Previously returned [] silently. Now throws RangeError immediately.
+
+describe("Badger.range — invalid date guards", () => {
+    it("invalid start string throws RangeError", () => {
+        expect(() => Badger.range("not-a-date", "2026-06-10", "day")).toThrow(RangeError);
+    });
+
+    it("invalid end string throws RangeError", () => {
+        expect(() => Badger.range("2026-06-01", "not-a-date", "day")).toThrow(RangeError);
+    });
+
+    it("invalid Badger as start throws RangeError", () => {
+        expect(() => Badger.range(new Badger("bad"), new Badger("2026-06-10"), "day")).toThrow(RangeError);
+    });
+
+    it("invalid Badger as end throws RangeError", () => {
+        expect(() => Badger.range(new Badger("2026-06-01"), new Badger("bad"), "day")).toThrow(RangeError);
+    });
+
+    it("valid range still works after guards", () => {
+        const result = Badger.range("2026-06-01", "2026-06-04", "day");
+        expect(result).toHaveLength(3);
+    });
+});
+
+// ─── add / subtract — NaN / Infinity amount ──────────────────────────────────
+// Passing NaN or Infinity to setDate/setHours etc. silently produces an
+// Invalid Date. The numeric path now throws RangeError before touching the date.
+
+describe("add / subtract — NaN and Infinity amount guards", () => {
+    const dt = new Badger("2026-06-15T12:00:00Z");
+
+    it("add(NaN, 'day') throws RangeError", () => {
+        expect(() => dt.add(NaN, "day")).toThrow(RangeError);
+    });
+
+    it("add(Infinity, 'hour') throws RangeError", () => {
+        expect(() => dt.add(Infinity, "hour")).toThrow(RangeError);
+    });
+
+    it("add(-Infinity, 'month') throws RangeError", () => {
+        expect(() => dt.add(-Infinity, "month")).toThrow(RangeError);
+    });
+
+    it("add({ days: NaN }) throws RangeError — NaN propagates through object path", () => {
+        expect(() => dt.add({ days: NaN })).toThrow(RangeError);
+    });
+
+    it("add({ hours: Infinity }) throws RangeError", () => {
+        expect(() => dt.add({ hours: Infinity })).toThrow(RangeError);
+    });
+
+    it("subtract(NaN, 'day') throws RangeError", () => {
+        expect(() => dt.subtract(NaN, "day")).toThrow(RangeError);
+    });
+
+    it("subtract(Infinity, 'hour') throws RangeError", () => {
+        expect(() => dt.subtract(Infinity, "hour")).toThrow(RangeError);
+    });
+
+    it("subtract({ days: NaN }) throws RangeError — NaN propagates through object path", () => {
+        expect(() => dt.subtract({ days: NaN })).toThrow(RangeError);
+    });
+
+    it("add with valid finite amount still works", () => {
+        expect(dt.add(1, "day").day).toBe(16);
+    });
+
+    it("subtract with valid finite amount still works", () => {
+        expect(dt.subtract(1, "day").day).toBe(14);
+    });
+});
+
+// ─── isSame — unknown unit default throw ─────────────────────────────────────
+
+describe("isSame — unknown unit throws TypeError", () => {
+    const dt = new Badger("2026-06-15T12:00:00Z");
+
+    it("unknown unit throws TypeError", () => {
+        expect(() => (dt as any).isSame(dt, "fortnight")).toThrow(TypeError);
+    });
+
+    it("known unit still works", () => {
+        expect(dt.isSame(dt, "day")).toBe(true);
+    });
+});
+
+// ─── diff — unknown unit default throw ───────────────────────────────────────
+
+describe("diff — unknown unit throws TypeError", () => {
+    const dt = new Badger("2026-06-15T12:00:00Z");
+
+    it("unknown unit throws TypeError", () => {
+        expect(() => (dt as any).diff(dt, "fortnight")).toThrow(TypeError);
+    });
+
+    it("known unit still works", () => {
+        expect(dt.diff(dt, "day")).toBe(0);
+    });
+});
+
+// ─── isWeekend / isWeekday / isBusinessDay — invalid Badger ──────────────────
+// Previously returned wrong values (isWeekday returned true for invalid dates).
+
+describe("isWeekend / isWeekday / isBusinessDay — invalid Badger", () => {
+    const invalid = new Badger("not-a-date");
+
+    it("isWeekend returns false for invalid date (not a random true)", () => {
+        expect(invalid.isWeekend()).toBe(false);
+    });
+
+    it("isWeekday returns false for invalid date (was wrongly true before)", () => {
+        expect(invalid.isWeekday()).toBe(false);
+    });
+
+    it("isBusinessDay returns false for invalid date", () => {
+        expect(invalid.isBusinessDay()).toBe(false);
+    });
+
+    it("valid dates still work normally", () => {
+        expect(new Badger("2026-06-20T00:00:00Z").isWeekend()).toBe(true);   // Saturday
+        expect(new Badger("2026-06-15T00:00:00Z").isWeekday()).toBe(true);   // Monday
+        expect(new Badger("2026-06-15T00:00:00Z").isBusinessDay()).toBe(true);
+    });
+});
+
+// ─── countdown — invalid relativeTo ──────────────────────────────────────────
+// Passing an invalid Date as relativeTo produced { days: NaN, ... } because
+// NaN <= 0 is false. Now returns null immediately when relativeTo is invalid.
+
+describe("countdown — invalid relativeTo guard", () => {
+    const future = new Badger("2026-12-25T00:00:00Z");
+
+    it("invalid relativeTo returns null", () => {
+        expect(future.countdown(new Date("not-a-date"))).toBeNull();
+    });
+
+    it("valid relativeTo still works", () => {
+        const result = future.countdown(new Date("2026-06-15T00:00:00Z"));
+        expect(result).not.toBeNull();
+        expect(result!.days).toBeGreaterThan(0);
+    });
+});
+
+// ─── addBusinessDays / subtractBusinessDays — invalid Badger ─────────────────
+// On an invalid Badger the loop body still ran n times before returning another
+// invalid Badger. Now short-circuits immediately to clone().
+
+describe("addBusinessDays / subtractBusinessDays — invalid Badger", () => {
+    const invalid = new Badger("not-a-date");
+
+    it("addBusinessDays on invalid Badger returns invalid clone without iterating", () => {
+        const result = invalid.addBusinessDays(5);
+        expect(result.isValid()).toBe(false);
+    });
+
+    it("subtractBusinessDays on invalid Badger returns invalid clone without iterating", () => {
+        const result = invalid.subtractBusinessDays(5);
+        expect(result.isValid()).toBe(false);
+    });
+
+    it("valid Badger still works normally", () => {
+        const monday = new Badger("2026-06-15T12:00:00Z");
+        expect(monday.addBusinessDays(1).toISOString()).toBe("2026-06-16T12:00:00.000Z");
+    });
+});
