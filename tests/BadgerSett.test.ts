@@ -901,3 +901,63 @@ describe("BadgerSett constructor — empty string", () => {
         expect(bs.currentDate.getTime()).toBeLessThanOrEqual(after);
     });
 });
+
+// ─── F5: BadgerSett formatting methods — descriptive error on invalid date ─────
+// Before fix: each method threw a cryptic native `RangeError: Invalid time value`
+// from Intl internals with no indication of which method was called.
+// After fix: throws `RangeError: BadgerSett.<method>(): date is not valid — …`
+
+describe("BadgerSett — invalid date guard on formatting methods (F5)", () => {
+    const invalid = new BadgerSett(new Date("not-a-date"));
+
+    it("formatForBackend throws descriptive RangeError", () => {
+        expect(() => invalid.formatForBackend()).toThrow(/BadgerSett\.formatForBackend/);
+    });
+
+    it("formatForBackendToStartOfDay throws descriptive RangeError", () => {
+        expect(() => invalid.formatForBackendToStartOfDay()).toThrow(/BadgerSett\.formatForBackendToStartOfDay/);
+    });
+
+    it("formatForBackendToEndOfDay throws descriptive RangeError", () => {
+        expect(() => invalid.formatForBackendToEndOfDay()).toThrow(/BadgerSett\.formatForBackendToEndOfDay/);
+    });
+
+    it("formatDate throws descriptive RangeError", () => {
+        expect(() => invalid.formatDate()).toThrow(/BadgerSett\.formatDate/);
+    });
+
+    it("formatDateOnly throws descriptive RangeError", () => {
+        expect(() => invalid.formatDateOnly()).toThrow(/BadgerSett\.formatDateOnly/);
+    });
+
+    it("formatTimeOnly throws descriptive RangeError", () => {
+        expect(() => invalid.formatTimeOnly()).toThrow(/BadgerSett\.formatTimeOnly/);
+    });
+
+    it("getDayName throws descriptive RangeError", () => {
+        expect(() => invalid.getDayName()).toThrow(/BadgerSett\.getDayName/);
+    });
+
+    it("getMonthName throws descriptive RangeError", () => {
+        expect(() => invalid.getMonthName()).toThrow(/BadgerSett\.getMonthName/);
+    });
+
+    it("startOfWeek throws descriptive RangeError", () => {
+        expect(() => invalid.startOfWeek()).toThrow(/BadgerSett\.startOfWeek/);
+    });
+
+    // Happy-path regression: valid dates still work after the guards were added.
+    it("formatForBackend still works for valid date", () => {
+        expect(new BadgerSett("2026-06-15T10:30:00Z").formatForBackend()).toBe("2026-06-15T10:30:00.000Z");
+    });
+
+    it("formatDate still works for valid date", () => {
+        expect(typeof new BadgerSett("2026-06-15T10:30:00Z").formatDate()).toBe("string");
+    });
+
+    it("startOfWeek still works for valid date", () => {
+        const result = new BadgerSett("2026-06-15T10:30:00Z").startOfWeek();
+        expect(result).toBeInstanceOf(Date);
+        expect(isNaN(result.getTime())).toBe(false);
+    });
+});

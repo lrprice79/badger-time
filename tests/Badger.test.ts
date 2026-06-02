@@ -2143,3 +2143,133 @@ describe("addBusinessDays / subtractBusinessDays — invalid Badger", () => {
         expect(monday.addBusinessDays(1).toISOString()).toBe("2026-06-16T12:00:00.000Z");
     });
 });
+
+// ─── F1: toISOString — descriptive error on invalid date ──────────────────────
+// Before fix: threw native `RangeError: Invalid time value` with no library context.
+// After fix: throws `RangeError: Badger.toISOString(): date is not valid — ...`
+
+describe("toISOString — invalid date guard (F1)", () => {
+    it("invalid Badger throws RangeError (not the cryptic native error)", () => {
+        const bad = new Badger("not-a-date");
+        expect(() => bad.toISOString()).toThrow(RangeError);
+    });
+
+    it("error message names the method", () => {
+        const bad = new Badger("not-a-date");
+        expect(() => bad.toISOString()).toThrow(/toISOString/);
+    });
+
+    it("valid date still returns ISO string normally", () => {
+        expect(new Badger("2026-06-15T10:30:00Z").toISOString()).toBe("2026-06-15T10:30:00.000Z");
+    });
+});
+
+// ─── F2: isLeapYear — explicit guard on invalid date ─────────────────────────
+// Before fix: returned `false` silently via NaN arithmetic — indistinguishable
+// from a genuine non-leap year.
+// After fix: returns `false` via an explicit `!this.isValid()` guard with JSDoc.
+
+describe("isLeapYear — invalid date guard (F2)", () => {
+    it("invalid date returns false (explicitly, not via silent NaN arithmetic)", () => {
+        expect(new Badger("not-a-date").isLeapYear()).toBe(false);
+    });
+
+    it("valid non-leap year still returns false", () => {
+        expect(new Badger("2026-01-01").isLeapYear()).toBe(false);
+    });
+
+    it("valid leap year still returns true", () => {
+        expect(new Badger("2024-01-01").isLeapYear()).toBe(true);
+    });
+});
+
+// ─── F3: fromLocal — out-of-range calendar values ────────────────────────────
+// Before fix: "2026-13-45" matched the YYYY-MM-DD regex and overflowed to a
+// wrong-but-valid date; "24:99" similarly overflowed.
+// After fix: range checks + post-construction overflow check throw RangeError.
+
+describe("fromLocal — out-of-range value validation (F3)", () => {
+    it("month 00 throws RangeError", () => {
+        expect(() => Badger.fromLocal("2026-00-15", "10:00")).toThrow(RangeError);
+    });
+
+    it("month 13 throws RangeError", () => {
+        expect(() => Badger.fromLocal("2026-13-15", "10:00")).toThrow(RangeError);
+    });
+
+    it("day 00 throws RangeError", () => {
+        expect(() => Badger.fromLocal("2026-06-00", "10:00")).toThrow(RangeError);
+    });
+
+    it("day 32 throws RangeError", () => {
+        expect(() => Badger.fromLocal("2026-06-32", "10:00")).toThrow(RangeError);
+    });
+
+    it("hour 24 throws RangeError", () => {
+        expect(() => Badger.fromLocal("2026-06-15", "24:00")).toThrow(RangeError);
+    });
+
+    it("minute 60 throws RangeError", () => {
+        expect(() => Badger.fromLocal("2026-06-15", "10:60")).toThrow(RangeError);
+    });
+
+    it("Feb 31 overflows into March — post-construction check throws RangeError", () => {
+        // Before fix: new Date(2026, 1, 31) overflows to 2026-03-03 silently.
+        expect(() => Badger.fromLocal("2026-02-31", "10:00")).toThrow(RangeError);
+    });
+
+    it("Feb 29 on non-leap year overflows — post-construction check throws RangeError", () => {
+        expect(() => Badger.fromLocal("2026-02-29", "10:00")).toThrow(RangeError);
+    });
+
+    it("Feb 29 on leap year is valid", () => {
+        const dt = Badger.fromLocal("2024-02-29", "10:00");
+        expect(dt.month).toBe(2);
+        expect(dt.day).toBe(29);
+    });
+
+    it("valid date and time still works normally", () => {
+        const dt = Badger.fromLocal("2026-06-15", "23:59");
+        expect(dt.hour).toBe(23);
+        expect(dt.minute).toBe(59);
+        expect(dt.day).toBe(15);
+        expect(dt.month).toBe(6);
+    });
+});
+
+// ─── F4: Badger.min / Badger.max — invalid inputs ─────────────────────────────
+// Before fix: result was position-dependent. `min(invalid, valid)` returned valid
+// (invalid always loses) but `min(valid, invalid)` returned the invalid Badger.
+// After fix: any invalid input throws RangeError immediately.
+
+describe("Badger.min / Badger.max — invalid input guard (F4)", () => {
+    const valid1 = new Badger("2026-01-01T00:00:00Z");
+    const valid2 = new Badger("2026-12-31T00:00:00Z");
+    const invalid = new Badger("not-a-date");
+
+    it("min() with invalid as first arg throws RangeError", () => {
+        // Before fix: invalid always loses, so this returned valid2 silently.
+        expect(() => Badger.min(invalid, valid2)).toThrow(RangeError);
+    });
+
+    it("min() with invalid as last arg throws RangeError", () => {
+        // Before fix: invalid in last position always wins, returning the invalid Badger.
+        expect(() => Badger.min(valid1, invalid)).toThrow(RangeError);
+    });
+
+    it("min() with all valid still returns earliest", () => {
+        expect(Badger.min(valid2, valid1).toISOString()).toBe(valid1.toISOString());
+    });
+
+    it("max() with invalid as first arg throws RangeError", () => {
+        expect(() => Badger.max(invalid, valid2)).toThrow(RangeError);
+    });
+
+    it("max() with invalid as last arg throws RangeError", () => {
+        expect(() => Badger.max(valid1, invalid)).toThrow(RangeError);
+    });
+
+    it("max() with all valid still returns latest", () => {
+        expect(Badger.max(valid1, valid2).toISOString()).toBe(valid2.toISOString());
+    });
+});

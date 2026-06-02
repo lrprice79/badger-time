@@ -48,8 +48,16 @@ export class BadgerSett extends Intl.DateTimeFormat {
         this.currentDate = date === "" ? new Date(NaN) : (date ? new Date(date) : new Date());
     }
 
+    /** @throws {RangeError} if `currentDate` is not a valid date. */
+    private assertDateValid(method: string): void {
+        if (isNaN(this.currentDate.getTime())) {
+            throw new RangeError(`BadgerSett.${method}(): date is not valid — check isNaN(currentDate.getTime()) first`);
+        }
+    }
+
     /** Returns the date as a UTC ISO 8601 string (e.g. `"2026-03-15T09:30:45.000Z"`), suitable for backend APIs. */
     formatForBackend(): string {
+        this.assertDateValid("formatForBackend");
         return this.currentDate.toISOString();
     }
 
@@ -58,6 +66,7 @@ export class BadgerSett extends Intl.DateTimeFormat {
      * Does not mutate `currentDate`.
      */
     formatForBackendToStartOfDay(): string {
+        this.assertDateValid("formatForBackendToStartOfDay");
         return this.toUtcIsoAtTimeInTimezone(0, 0, 0, 0);
     }
 
@@ -66,6 +75,7 @@ export class BadgerSett extends Intl.DateTimeFormat {
      * Does not mutate `currentDate`.
      */
     formatForBackendToEndOfDay(): string {
+        this.assertDateValid("formatForBackendToEndOfDay");
         return this.toUtcIsoAtTimeInTimezone(23, 59, 59, 999);
     }
 
@@ -133,11 +143,13 @@ export class BadgerSett extends Intl.DateTimeFormat {
 
     /** Formats the full date and time using the configured locale and options. */
     formatDate() {
+        this.assertDateValid("formatDate");
         return this.format(this.currentDate);
     }
 
     /** Formats only the date portion (year, month, day) without time. */
     formatDateOnly() {
+        this.assertDateValid("formatDateOnly");
         return new Intl.DateTimeFormat(this.resolvedOptions().locale, {
             year: "numeric",
             month: "2-digit",
@@ -149,6 +161,7 @@ export class BadgerSett extends Intl.DateTimeFormat {
     /** Formats only the time portion (hour, minute, second), using the locale's
      *  preferred hour cycle — 12-hour for en-US/ar-SA, 24-hour for en-GB/de-DE etc. */
     formatTimeOnly() {
+        this.assertDateValid("formatTimeOnly");
         const locale = this.resolvedOptions().locale;
         const hourCycles = (new Intl.Locale(locale) as any).hourCycles as string[] | undefined;
         /* v8 ignore next 1 */
@@ -164,6 +177,7 @@ export class BadgerSett extends Intl.DateTimeFormat {
 
     /** Returns the localised weekday name (e.g. `"Monday"`, `"Mon"`, `"M"`). */
     getDayName(format: Weekday = "long") {
+        this.assertDateValid("getDayName");
         return new Intl.DateTimeFormat(this.resolvedOptions().locale, {
             weekday: format
         }).format(this.currentDate);
@@ -171,6 +185,7 @@ export class BadgerSett extends Intl.DateTimeFormat {
 
     /** Returns the localised month name (e.g. `"March"`, `"Mar"`, `"M"`). */
     getMonthName(format: Month = "long") {
+        this.assertDateValid("getMonthName");
         return new Intl.DateTimeFormat(this.resolvedOptions().locale, {
             month: format
         }).format(this.currentDate);
@@ -240,6 +255,7 @@ export class BadgerSett extends Intl.DateTimeFormat {
      * for dates near midnight.
      */
     startOfWeek(): Date {
+        this.assertDateValid("startOfWeek");
         const locObj = new Intl.Locale(this.resolvedOptions().locale);
         /* v8 ignore next 1 */
         const firstDay: number = (locObj as any).weekInfo?.firstDay ?? 1;

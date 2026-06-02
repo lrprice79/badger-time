@@ -41,7 +41,7 @@ badger-time uses the browser and Node's built-in `Intl` APIs to get these things
 | Countdown with `null` for past dates | ✗ | ✗ | ✗ | ✅ |
 | Native duration formatting (`Intl.DurationFormat`) | ✗ | ✗ | ✗ | ✅ |
 | Reactive global locale (`subscribe`) | ✗ | ✗ | ✗ | ✅ |
-| Bundle size (min+gzip) | ~72 KB | ~14 KB | ~23 KB | **~9 KB** |
+| Bundle size (min+gzip) | ~72 KB | ~14 KB | ~23 KB | **~9.7 KB** |
 
 ---
 
@@ -135,7 +135,12 @@ dt.hour;      // 0  — local midnight, not shifted to UTC
 dt.dayOfWeek; // 5  — Friday, correct local day
 ```
 
-`date` must be `"YYYY-MM-DD"` and `time` must be `"HH:mm"` — throws `RangeError` if either format is wrong.
+`date` must be `"YYYY-MM-DD"` and `time` must be `"HH:mm"`.
+
+Throws `RangeError` if:
+- Either argument doesn't match the expected format
+- Month or hour/minute is out of range (`month 0`, `hour 24`, `minute 60`, etc.)
+- The day doesn't exist in the given month (`"2026-02-31"`, `"2026-02-29"` on a non-leap year)
 
 ---
 
@@ -146,7 +151,12 @@ const earliest = Badger.min(deadline, today, cutoff);
 const latest   = Badger.max(deadline, today, cutoff);
 ```
 
-Throws `RangeError` if called with no arguments.
+Throws `RangeError` if called with no arguments, or if any input is an invalid `Badger`. Use `isValid()` to filter before passing untrusted inputs:
+
+```ts
+const valid = dates.filter(d => d.isValid());
+const earliest = valid.length ? Badger.min(...valid) : null;
+```
 
 ---
 
@@ -380,36 +390,51 @@ a.diff(b, "second", true) // fractional seconds
 ### Other utilities
 
 ```ts
-dt.toISOString()              // "2026-03-15T10:30:00.000Z"
+dt.toISOString()              // "2026-03-15T10:30:00.000Z"  — throws RangeError if invalid
 dt.toDate()                   // copy of underlying Date — mutations don't affect Badger
-dt.toUnixTimestamp()          // Unix seconds (floored)
-dt.toMillisecondTimestamp()   // Unix milliseconds
+dt.toUnixTimestamp()          // Unix seconds (floored) — NaN if invalid
+dt.toMillisecondTimestamp()   // Unix milliseconds — NaN if invalid
 dt.toObject()                 // { year, month, day, hour, minute, second, millisecond }
 dt.clone()                    // independent copy
 dt.isValid()                  // false for invalid/corrupt dates — check before using
 dt.getDaysInMonth()           // 28–31
 dt.daysInYear()               // 365 or 366 (NaN for invalid dates)
 dt.getWeekNumber()            // ISO 8601 week number (1–53)
-dt.isLeapYear()
+dt.isLeapYear()               // false for invalid dates
 ```
 
 ---
 
 ### Invalid dates
 
-`isValid()` is the guard. Methods called on an invalid `Badger` follow consistent rules:
-- **Boolean methods** (`isWeekend`, `isWeekday`, `isBusinessDay`, etc.) → `false`
-- **Numeric methods** (`diff`, `year`, `dayOfYear`, etc.) → `NaN`
-- **Countdown** → `null`
-- **Business day iterators** (`addBusinessDays`, `subtractBusinessDays`) → return invalid clone immediately (no iteration)
+Always call `isValid()` before using a `Badger` constructed from untrusted input. Methods follow consistent, documented rules for invalid receivers:
+
+| Category | Methods | Returns |
+|---|---|---|
+| **Boolean checks** | `isWeekend`, `isWeekday`, `isBusinessDay`, `isLeapYear`, `isPast`, `isFuture`, `isToday`, `isBefore`, `isAfter`, … | `false` |
+| **Numeric getters** | `year`, `month`, `day`, `dayOfYear`, `diff`, `toUnixTimestamp`, `daysInYear`, … | `NaN` |
+| **Countdown** | `countdown()` | `null` |
+| **Arithmetic** | `add`, `subtract`, `startOf`, `endOf`, `clone` | Invalid `Badger` (chain stays invalid) |
+| **Business day iterators** | `addBusinessDays`, `subtractBusinessDays` | Invalid clone — no iteration |
+| **`toISOString()`** | — | Throws `RangeError` (can't produce a meaningful string) |
+| **`Sett` formatters** | `formatDate`, `formatTimeOnly`, `getDayName`, … | Throw `RangeError` with the method name |
 
 ```ts
 const bad = Badger("not-a-date");
-bad.isValid()      // false
-bad.isWeekend()    // false  (not true — the bug-free path)
-bad.isWeekday()    // false  (not true)
-bad.countdown()    // null
-bad.addBusinessDays(5)  // returns invalid clone, doesn't iterate
+bad.isValid()            // false — always check this first
+bad.isWeekend()          // false
+bad.isWeekday()          // false
+bad.countdown()          // null
+bad.daysInYear()         // NaN
+bad.addBusinessDays(5)   // returns invalid clone, no looping
+
+// toISOString is the one method that throws — it can't produce a string for invalid input
+bad.toISOString()        // RangeError: Badger.toISOString(): date is not valid…
+
+// Badger.min / Badger.max throw on invalid inputs — filter first if needed
+const dates = [Badger("2026-01-01"), Badger("bad"), Badger("2026-06-15")];
+const valid = dates.filter(d => d.isValid());
+Badger.min(...valid)     // Badger("2026-01-01")
 ```
 
 ---
@@ -488,6 +513,8 @@ s.formatRelative(anchorDate)   // relative to a specific date instead of now
 Month and year thresholds are calendar-based, not approximate. 28 days in the same calendar month is "4 weeks ago", not "1 month ago".
 
 Throws `RangeError` if `currentDate` or `relativeTo` is invalid — no silent garbage output.
+
+All `Sett` formatting methods throw `RangeError` (naming the method) when `currentDate` is invalid. Check `isNaN(bs.currentDate.getTime())` or use a valid `Badger`/`Date` to construct.
 
 ### Duration formatting
 
@@ -788,6 +815,21 @@ serverDate.isWeekend()  // local weekend check — correct
 // Backend always gets UTC regardless of user timezone
 Sett(serverDate.toDate()).formatForBackend()
 // "2026-06-15T22:00:00.000Z"
+```
+
+---
+
+## Quality
+
+- **577 tests** — every public method, every unit, edge cases including DST transitions, year boundaries, ISO week-year rollovers, and locale-specific weekend/week-start logic
+- **100% coverage** — statements, branches, functions, and lines
+- **CET/CEST suite** — a dedicated DST test file runs under `TZ=Europe/Berlin` to verify all calendar calculations against a live non-UTC timezone
+- **Audit** — a structured four-phase audit (bad receiver, bad args, missing args, unknown values, data-flow, consistency) was applied to every function. All findings fixed.
+- **Zero runtime dependencies** — the bundle is the library, nothing else
+
+```bash
+npm test          # full suite + coverage
+npm run test:cet  # CET/CEST timezone suite
 ```
 
 ---

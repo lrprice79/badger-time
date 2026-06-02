@@ -115,6 +115,8 @@ export class Badger {
    */
   static min(...dates: Badger[]): Badger {
     if (dates.length === 0) throw new RangeError("Badger.min() requires at least one date");
+    const invalid = dates.find(d => !d.isValid());
+    if (invalid) throw new RangeError("Badger.min(): all dates must be valid — use isValid() to filter first");
     return dates.reduce((a, b) => (a.isBefore(b) ? a : b));
   }
 
@@ -128,6 +130,8 @@ export class Badger {
    */
   static max(...dates: Badger[]): Badger {
     if (dates.length === 0) throw new RangeError("Badger.max() requires at least one date");
+    const invalid = dates.find(d => !d.isValid());
+    if (invalid) throw new RangeError("Badger.max(): all dates must be valid — use isValid() to filter first");
     return dates.reduce((a, b) => (a.isAfter(b) ? a : b));
   }
 
@@ -157,7 +161,16 @@ export class Badger {
       throw new RangeError(`fromLocal: time must be "HH:mm", got "${time}"`);
     const [year, month, day] = date.split("-").map(Number);
     const [h, m] = time.split(":").map(Number);
-    return new Badger(new Date(year!, (month!) - 1, day!, h!, m!, 0, 0));
+    if (month! < 1 || month! > 12) throw new RangeError(`fromLocal: month must be 1–12, got ${month}`);
+    if (day! < 1 || day! > 31)    throw new RangeError(`fromLocal: day must be 1–31, got ${day}`);
+    if (h! > 23)                   throw new RangeError(`fromLocal: hour must be 0–23, got ${h}`);
+    if (m! > 59)                   throw new RangeError(`fromLocal: minute must be 0–59, got ${m}`);
+    const result = new Badger(new Date(year!, month! - 1, day!, h!, m!, 0, 0));
+    // Post-construction overflow check: catches e.g. Feb 31 overflowing into March.
+    if (result.month !== month! || result.day !== day!) {
+      throw new RangeError(`fromLocal: day ${day} is out of range for month ${month} in year ${year}`);
+    }
+    return result;
   }
 
   /**
@@ -204,8 +217,12 @@ export class Badger {
     return new Date(this.currentDate.getTime());
   }
 
-  /** Returns the ISO 8601 string representation. */
+  /**
+   * Returns the ISO 8601 string representation.
+   * @throws {RangeError} if the date is not valid — call `isValid()` first.
+   */
   toISOString(): string {
+    if (!this.isValid()) throw new RangeError("Badger.toISOString(): date is not valid — call isValid() first");
     return this.currentDate.toISOString();
   }
 
@@ -333,8 +350,9 @@ export class Badger {
     return this.isLeapYear() ? 366 : 365;
   }
 
-  /** Returns `true` if the current year is a leap year. */
+  /** Returns `true` if the current year is a leap year. Returns `false` for invalid dates. */
   isLeapYear(): boolean {
+    if (!this.isValid()) return false;
     const year = this.currentDate.getFullYear();
     return (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
   }
