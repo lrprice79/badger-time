@@ -231,8 +231,13 @@ export class BadgerSett extends Intl.DateTimeFormat {
     }
 
     /**
-     * Returns a new `Date` at UTC midnight of the first day of the week
+     * Returns a new `Date` at local midnight of the first day of the week
      * for the configured locale (e.g. Sunday for `en-US`, Monday for `en-GB`).
+     *
+     * Uses local time throughout — consistent with `Badger.startOf("week")` and
+     * the `.dayOfWeek` getter. In non-UTC timezones this gives the correct local
+     * calendar day, whereas a UTC-based calculation would return the wrong week
+     * for dates near midnight.
      */
     startOfWeek(): Date {
         const locObj = new Intl.Locale(this.resolvedOptions().locale);
@@ -240,11 +245,11 @@ export class BadgerSett extends Intl.DateTimeFormat {
         const firstDay: number = (locObj as any).weekInfo?.firstDay ?? 1;
         // weekInfo firstDay: 1=Mon…7=Sun → JS: Sun=0, else same as ISO
         const jsFirstDay = firstDay === 7 ? 0 : firstDay;
-        const jsDay = this.currentDate.getUTCDay();
+        const jsDay = this.currentDate.getDay();          // local day of week
         const daysBack = (jsDay - jsFirstDay + 7) % 7;
         const result = new Date(this.currentDate);
-        result.setUTCDate(result.getUTCDate() - daysBack);
-        result.setUTCHours(0, 0, 0, 0);
+        result.setDate(result.getDate() - daysBack);      // local date stepping
+        result.setHours(0, 0, 0, 0);                      // local midnight
         return result;
     }
 

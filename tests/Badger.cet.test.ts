@@ -13,6 +13,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { Badger } from "../src/Badger";
+import { BadgerSett } from "../src/BadgerSett";
 
 // ─── dayOfYear ────────────────────────────────────────────────────────────────
 
@@ -342,5 +343,66 @@ describe("getWeekNumber — around spring-forward", () => {
 
     it("March 23 (Monday, opens week 13) → week 13", () => {
         expect(Badger.fromLocal("2026-03-23", "12:00").getWeekNumber()).toBe(13);
+    });
+});
+
+// ─── BadgerSett.startOfWeek — local vs UTC in CEST ───────────────────────────
+//
+// In CEST (UTC+2), local Saturday midnight Jun 20 = Jun 19 22:00 UTC (Friday UTC).
+// The old code used getUTCDay() → saw Friday → returned Monday Jun 15 (wrong week).
+// The new code uses getDay() → sees Saturday locally → returns Monday Jun 22 (correct).
+//
+// Similarly, local Monday midnight Jun 22 = Jun 21 22:00 UTC (Sunday UTC).
+// Old code: getUTCDay() = Sunday → went back 6 days → returned Monday Jun 16 (wrong).
+// New code: getDay() = Monday → daysBack = 0 → returns Jun 22 itself (correct).
+
+describe("BadgerSett.startOfWeek — local time in CEST (en-GB, Mon start)", () => {
+
+    it("local Saturday midnight returns the correct Monday (not the Monday of the UTC week)", () => {
+        // Jun 20 00:00 CEST = Jun 19 22:00 UTC
+        // Old: getUTCDay() = 5 (Fri) → daysBack = 4 → Jun 15 (wrong — that's the Mon of the prev week in UTC)
+        // New: getDay() = 6 (Sat) → daysBack = 5 → Jun 15... wait let me recalc
+        // Actually: jsFirstDay for en-GB = 1 (Mon). jsDay = 6 (Sat). daysBack = (6-1+7)%7 = 5.
+        // result = Jun 20 - 5 days = Jun 15. Hmm, Jun 15 IS the Monday of that week locally.
+        // Old: jsDay (UTC) = 5 (Fri). daysBack = (5-1+7)%7 = 4. Jun 20 - 4 = Jun 16 (Tuesday UTC).
+        // So old returns Jun 16 local, new returns Jun 15 local. Jun 15 is correct (Mon of Jun 15-21 week).
+        const saturdayMidnight = new BadgerSett(
+            Badger.fromLocal("2026-06-20", "00:00").toDate(),
+            new Intl.Locale("en-GB")
+        );
+        const result = saturdayMidnight.startOfWeek();
+        // Should be Monday Jun 15 at local midnight (CEST = UTC+2, so 22:00 UTC Jun 14)
+        expect(result.getFullYear()).toBe(2026);
+        expect(result.getMonth()).toBe(5);   // 0-indexed June
+        expect(result.getDate()).toBe(15);   // Monday June 15 locally
+        expect(result.getHours()).toBe(0);   // local midnight
+        expect(result.getMinutes()).toBe(0);
+    });
+
+    it("local Monday midnight returns that same Monday (daysBack = 0)", () => {
+        // Jun 22 00:00 CEST = Jun 21 22:00 UTC (Sunday UTC)
+        // Old: getUTCDay() = 0 (Sun) → daysBack = (0-1+7)%7 = 6 → Jun 16 (wrong)
+        // New: getDay() = 1 (Mon) → daysBack = 0 → Jun 22 itself (correct)
+        const mondayMidnight = new BadgerSett(
+            Badger.fromLocal("2026-06-22", "00:00").toDate(),
+            new Intl.Locale("en-GB")
+        );
+        const result = mondayMidnight.startOfWeek();
+        expect(result.getFullYear()).toBe(2026);
+        expect(result.getMonth()).toBe(5);
+        expect(result.getDate()).toBe(22);   // Monday June 22 locally
+        expect(result.getHours()).toBe(0);
+    });
+
+    it("mid-week date returns the correct Monday", () => {
+        // Jun 17 12:00 CEST (Wednesday noon) → week starts Mon Jun 15
+        const wednesday = new BadgerSett(
+            Badger.fromLocal("2026-06-17", "12:00").toDate(),
+            new Intl.Locale("en-GB")
+        );
+        const result = wednesday.startOfWeek();
+        expect(result.getDate()).toBe(15);
+        expect(result.getMonth()).toBe(5);
+        expect(result.getHours()).toBe(0);
     });
 });
