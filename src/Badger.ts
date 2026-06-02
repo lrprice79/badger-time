@@ -165,14 +165,14 @@ export class Badger {
     end: string | Date | Badger,
     unit: "day" | "week" | "month"
   ): Badger[] {
-    // Normalise both boundaries to midnight UTC so comparisons are day-level
-    const s = (start instanceof Badger ? start : new Badger(start)).startOf("day");
-    const e = (end instanceof Badger ? end : new Badger(end)).startOf("day");
+    const normalise = (d: Badger) => unit === "day" ? d.startOf("day") : d;
+    const s = normalise(start instanceof Badger ? start : new Badger(start));
+    const e = normalise(end instanceof Badger ? end : new Badger(end));
     const results: Badger[] = [];
     let current = s;
     while (current.isBefore(e)) {
       results.push(current);
-      current = current.add(1, unit).startOf("day");
+      current = normalise(current.add(1, unit));
     }
     return results;
   }

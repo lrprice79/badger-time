@@ -1450,6 +1450,22 @@ describe("Badger.range", () => {
         expect(result).toHaveLength(3);
         expect(result[result.length - 1].toISOString()).toBe("2026-06-03T00:00:00.000Z");
     });
+
+    it("week range does not strip time — preserves input time across steps", () => {
+        const result = Badger.range("2026-06-01T09:30:00Z", "2026-06-22T09:30:00Z", "week");
+        expect(result).toHaveLength(3);
+        expect(result[0].toISOString()).toBe("2026-06-01T09:30:00.000Z");
+        expect(result[1].toISOString()).toBe("2026-06-08T09:30:00.000Z");
+        expect(result[2].toISOString()).toBe("2026-06-15T09:30:00.000Z");
+    });
+
+    it("month range preserves day-of-month across steps", () => {
+        const result = Badger.range("2026-01-15T00:00:00Z", "2026-04-15T00:00:00Z", "month");
+        expect(result).toHaveLength(3);
+        expect(result[0].toISOString()).toBe("2026-01-15T00:00:00.000Z");
+        expect(result[1].toISOString()).toBe("2026-02-15T00:00:00.000Z");
+        expect(result[2].toISOString()).toBe("2026-03-15T00:00:00.000Z");
+    });
 });
 
 // ─── isBusinessDay ────────────────────────────────────────────────────────────
