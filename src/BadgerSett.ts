@@ -351,7 +351,7 @@ export class BadgerSett extends Intl.DateTimeFormat {
         } else if (days < 7) {
             value = days;
             unit = "day";
-        } else if (calMonths < 1) {
+        } else if (days < 28 || calMonths < 1) {
             value = weeks;
             unit = "week";
         } else if (calMonths < 12) {

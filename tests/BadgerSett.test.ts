@@ -503,6 +503,57 @@ describe("formatRelative", () => {
     });
 });
 
+// ─── formatRelative — month-boundary week fix ─────────────────────────────────
+// The old threshold was `calMonths < 1 → weeks`, which broke for any difference
+// under 4 weeks that happened to cross a month boundary. May 25 relative to Jun 1
+// anchor = 7 days but calMonths = 1, so it said "last month" — a user-facing lie.
+//
+// Fix: `days < 28 || calMonths < 1 → weeks`. Under 28 days is always weeks
+// regardless of whether the boundary crossed a calendar month.
+
+describe("formatRelative — short diffs across a month boundary stay in weeks", () => {
+    const anchor = new Date("2026-06-01T12:00:00Z");
+
+    it("7 days ago spanning May→Jun boundary → 'last week', not 'last month'", () => {
+        const bs = new BadgerSett(new Date("2026-05-25T12:00:00Z"));
+        expect(bs.formatRelative(anchor)).toBe("last week");
+    });
+
+    it("14 days ago spanning month boundary → '2 weeks ago'", () => {
+        const bs = new BadgerSett(new Date("2026-05-18T12:00:00Z"));
+        expect(bs.formatRelative(anchor)).toBe("2 weeks ago");
+    });
+
+    it("21 days ago spanning month boundary → '3 weeks ago'", () => {
+        const bs = new BadgerSett(new Date("2026-05-11T12:00:00Z"));
+        expect(bs.formatRelative(anchor)).toBe("3 weeks ago");
+    });
+
+    it("7 days in the future spanning month boundary → 'next week', not 'next month'", () => {
+        const futureAnchor = new Date("2026-05-25T12:00:00Z");
+        const bs = new BadgerSett(new Date("2026-06-01T12:00:00Z"));
+        expect(bs.formatRelative(futureAnchor)).toBe("next week");
+    });
+
+    it("31 days (genuine month apart) → still 'last month'", () => {
+        // May 1 is 31 days before Jun 1 — this is a real month, not a week
+        const bs = new BadgerSett(new Date("2026-05-01T12:00:00Z"));
+        expect(bs.formatRelative(anchor)).toBe("last month");
+    });
+
+    it("28 days spanning month boundary (threshold) → 'last month'", () => {
+        // May 4 is exactly 28 days before Jun 1 — at the boundary, months wins
+        const bs = new BadgerSett(new Date("2026-05-04T12:00:00Z"));
+        expect(bs.formatRelative(anchor)).toBe("last month");
+    });
+
+    it("27 days spanning month boundary — still weeks", () => {
+        // May 5 is 27 days before Jun 1 — just under the threshold
+        const bs = new BadgerSett(new Date("2026-05-05T12:00:00Z"));
+        expect(bs.formatRelative(anchor)).toBe("3 weeks ago");
+    });
+});
+
 // ─── formatRelative with custom anchor ───────────────────────────────────────
 
 describe("formatRelative with relativeTo anchor", () => {
