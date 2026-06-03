@@ -4,7 +4,7 @@ export default defineConfig({
     test: {
         globals: false,
         environment: "node",
-        exclude: ["**/node_modules/**", "tests/Badger.cet.test.ts"],
+        exclude: ["**/node_modules/**", "tests/Badger.cet.test.ts", "tests/Badger.ny.test.ts"],
         coverage: {
             provider: "v8",
             include: ["src/**/*.ts"],

@@ -23,7 +23,8 @@
     "prepublishOnly": "npm run build",
     "test": "TZ=UTC vitest run --coverage",
     "test:watch": "TZ=UTC vitest",
-    "test:cet": "TZ=Europe/Berlin vitest run --config vitest.cet.config.mts"
+    "test:cet": "TZ=Europe/Berlin vitest run --config vitest.cet.config.mts",
+    "test:ny": "TZ=America/New_York vitest run --config vitest.ny.config.mts"
   },
   "keywords": [
     "date",

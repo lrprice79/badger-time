@@ -24,3 +24,6 @@ jobs:
 
       - name: Run tests (CET)
         run: npm run test:cet
+
+      - name: Run tests (New York)
+        run: npm run test:ny
