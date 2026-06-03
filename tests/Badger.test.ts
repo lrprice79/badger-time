@@ -1876,6 +1876,35 @@ describe("addBusinessDays / subtractBusinessDays — NaN guard", () => {
     });
 });
 
+// ─── addBusinessDays / subtractBusinessDays — non-integer guard ───────────────
+// The while loop decrements remaining by 1 each valid business day.
+// A float like 1.5 → 0.5 → -0.5 (two steps) — silently adds 2 days instead of 1.
+// Fix: !Number.isInteger(n) added to the guard so floats throw immediately.
+
+describe("addBusinessDays / subtractBusinessDays — non-integer guard", () => {
+    const dt = new Badger("2026-06-17T00:00:00Z"); // Wednesday
+
+    it("addBusinessDays(1.5) throws RangeError", () => {
+        expect(() => dt.addBusinessDays(1.5)).toThrow(RangeError);
+    });
+
+    it("addBusinessDays(0.5) throws RangeError", () => {
+        expect(() => dt.addBusinessDays(0.5)).toThrow(RangeError);
+    });
+
+    it("subtractBusinessDays(1.5) throws RangeError", () => {
+        expect(() => dt.subtractBusinessDays(1.5)).toThrow(RangeError);
+    });
+
+    it("addBusinessDays(1) still works (integer)", () => {
+        expect(dt.addBusinessDays(1).toISOString()).toBe("2026-06-18T00:00:00.000Z");
+    });
+
+    it("subtractBusinessDays(1) still works (integer)", () => {
+        expect(dt.subtractBusinessDays(1).toISOString()).toBe("2026-06-16T00:00:00.000Z");
+    });
+});
+
 // ─── Runtime guard: clamp / isBetween with invalid bounds ─────────────────────
 // NaN > NaN is false, so invalid bounds previously slipped past the existing
 // range checks and produced silent wrong-value results. Both now throw eagerly.

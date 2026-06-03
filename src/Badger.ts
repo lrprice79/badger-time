@@ -917,7 +917,7 @@ export class Badger {
    * a local "add one day" can land on the wrong calendar date.
    */
   addBusinessDays(n: number, locale?: Intl.Locale): Badger {
-    if (!Number.isFinite(n) || n < 0) throw new RangeError(`addBusinessDays: n must be a non-negative finite number, got ${n}`);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) throw new RangeError(`addBusinessDays: n must be a non-negative integer, got ${n}`);
     if (!this.isValid()) return this.clone();
     const weekend = this.getWeekend(locale);
     let result = new Date(this.currentDate);
@@ -939,7 +939,7 @@ export class Badger {
    * getters). The date is stepped with `setUTCDate` to avoid DST edge-cases.
    */
   subtractBusinessDays(n: number, locale?: Intl.Locale): Badger {
-    if (!Number.isFinite(n) || n < 0) throw new RangeError(`subtractBusinessDays: n must be a non-negative finite number, got ${n}`);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) throw new RangeError(`subtractBusinessDays: n must be a non-negative integer, got ${n}`);
     if (!this.isValid()) return this.clone();
     const weekend = this.getWeekend(locale);
     let result = new Date(this.currentDate);
