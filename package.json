@@ -16,7 +16,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "npm run build:types && npm run build:bundle && npm run build:obfuscate",
+    "build": "npm run build:types && npm run build:bundle && npm run build:obfuscate && npm run build:strip-types",
+    "build:strip-types": "node scripts/strip-dts-comments.mjs",
     "build:types": "tsc --emitDeclarationOnly --declaration --declarationDir dist",
     "build:bundle": "rollup -c",
     "build:obfuscate": "node scripts/obfuscate.mjs",

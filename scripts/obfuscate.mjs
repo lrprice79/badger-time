@@ -14,7 +14,7 @@ for (const file of targets) {
     identifierNamesGenerator: "mangled",
     renameGlobals: false,
     rotateStringArray: true,
-    selfDefending: false,
+    selfDefending: true,
     shuffleStringArray: true,
     splitStrings: false,
     stringArray: true,
