@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { BadgerSett } from "../src/BadgerSett";
 import { BadgerSettings } from "../src/BadgerSettings";
+import { Badger } from "../src/Badger";
 
 // All tests run under TZ=UTC (set in vitest.config.ts).
 // Europe/London is UTC in winter and UTC+1 in summer (BST).
@@ -40,6 +41,53 @@ describe("BadgerSett constructor", () => {
             timeZone: "Europe/London"
         });
         expect(bs.resolvedOptions().month).toBe("long");
+    });
+});
+
+// ─── BadgerSett constructor — string UTC normalisation ────────────────────────
+// Mirrors Badger's string parsing rules so both classes treat strings the same way.
+//
+// Rules:
+//   Date-only "YYYY-MM-DD"                     → UTC midnight (spec guarantees this, no Z appended)
+//   String with explicit TZ indicator (Z / ±HH:MM) → used as-is
+//   All other bare datetime strings            → Z appended (interpreted as UTC)
+//
+// Before fix: bare datetime strings were fed directly to `new Date(string)` which
+// treats them as LOCAL time, producing a 2-hour offset on a UTC+2 machine vs Badger.
+
+describe("BadgerSett constructor — string UTC normalisation", () => {
+    it("bare datetime string is treated as UTC — matches Badger behaviour", () => {
+        // Before fix on a UTC+2 machine: new BadgerSett("2026-06-15T10:30:00")
+        // gave 08:30Z (10:30 local − 2h) while Badger gave 10:30Z.
+        const bs = new BadgerSett("2026-06-15T10:30:00");
+        expect(bs.currentDate.toISOString()).toBe("2026-06-15T10:30:00.000Z");
+    });
+
+    it("date-only string is UTC midnight — unchanged behaviour", () => {
+        const bs = new BadgerSett("2026-06-15");
+        expect(bs.currentDate.toISOString()).toBe("2026-06-15T00:00:00.000Z");
+    });
+
+    it("Z-suffixed string is used as-is", () => {
+        const bs = new BadgerSett("2026-06-15T10:30:00Z");
+        expect(bs.currentDate.toISOString()).toBe("2026-06-15T10:30:00.000Z");
+    });
+
+    it("+HH:MM offset string is used as-is", () => {
+        const bs = new BadgerSett("2026-06-15T12:30:00+02:00");
+        expect(bs.currentDate.toISOString()).toBe("2026-06-15T10:30:00.000Z");
+    });
+
+    it("-HH:MM offset string is used as-is", () => {
+        const bs = new BadgerSett("2026-06-15T05:30:00-05:00");
+        expect(bs.currentDate.toISOString()).toBe("2026-06-15T10:30:00.000Z");
+    });
+
+    it("Badger and BadgerSett parse the same bare string to the same UTC instant", () => {
+        const bare = "2026-06-15T10:30:00";
+        const bsTime = new BadgerSett(bare).currentDate.getTime();
+        const bdTime = new Badger(bare).toDate().getTime();
+        expect(bsTime).toBe(bdTime);
     });
 });
 

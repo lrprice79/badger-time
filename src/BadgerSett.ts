@@ -45,7 +45,17 @@ export class BadgerSett extends Intl.DateTimeFormat {
                 : defaultDateFormatOptions
         );
         super(resolvedLocale.baseName, resolvedOptions);
-        this.currentDate = date === "" ? new Date(NaN) : (date ? new Date(date) : new Date());
+        if (typeof date === "string") {
+            if (date === "") {
+                this.currentDate = new Date(NaN);
+            } else {
+                const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(date);
+                const hasTimezoneIndicator = /(?:Z|[+-]\d{2}:?\d{2})$/.test(date);
+                this.currentDate = new Date(isDateOnly || hasTimezoneIndicator ? date : date + "Z");
+            }
+        } else {
+            this.currentDate = date ? new Date(date) : new Date();
+        }
     }
 
     /** @throws {RangeError} if `currentDate` is not a valid date. */
