@@ -41,7 +41,7 @@ badger-time uses the browser and Node's built-in `Intl` APIs to get these things
 | Countdown with `null` for past dates | ✗ | ✗ | ✗ | ✅ |
 | Native duration formatting (`Intl.DurationFormat`) | ✗ | ✗ | ✗ | ✅ |
 | Reactive global locale (`subscribe`) | ✗ | ✗ | ✗ | ✅ |
-| Bundle size (min+gzip) | ~72 KB | ~14 KB | ~23 KB | **~9.7 KB** |
+| Bundle size (min+gzip) | ~72 KB | ~14 KB | ~23 KB | **~10 KB** |
 
 ---
 
@@ -258,6 +258,7 @@ Badger("2026-06-12").isBusinessDay(new Intl.Locale("ar-SA"))  // false (Friday i
 Badger("2026-06-14").isBusinessDay(new Intl.Locale("ar-SA"))  // true  (Sunday is a workday in ar-SA)
 
 // Add/subtract business days — skips the correct weekend for the locale
+// n must be a non-negative integer — floats like 1.5 throw RangeError
 Badger("2026-06-12").addBusinessDays(1)                             // Mon Jun 15 (skips Sat+Sun)
 Badger("2026-06-12").addBusinessDays(1, new Intl.Locale("ar-SA"))  // Sun Jun 14 (skips Fri+Sat)
 Badger("2026-06-15").subtractBusinessDays(1)                        // Fri Jun 12
@@ -445,9 +446,13 @@ Defaults to `en-GB` / `Europe/London` unless overridden by `BadgerSettings`.
 
 ### Construction
 
+String inputs follow the same UTC normalization rules as `Badger()` — bare datetime strings get `"Z"` appended, date-only `"YYYY-MM-DD"` strings are UTC midnight.
+
 ```ts
 Sett()                                              // now, global defaults
 Sett(someDate)
+Sett("2026-03-15T10:30:00")                         // bare string → UTC (Z appended)
+Sett("2026-03-15")                                  // date-only → UTC midnight
 Sett(someDate, new Intl.Locale("sv-SE"))
 Sett(someDate, new Intl.Locale("sv-SE"), {
     timeZone: "Europe/Stockholm",
@@ -510,7 +515,7 @@ s.formatRelative()             // "3 hours ago" / "in 2 days" / "last month"
 s.formatRelative(anchorDate)   // relative to a specific date instead of now
 ```
 
-Month and year thresholds are calendar-based, not approximate. 28 days in the same calendar month is "4 weeks ago", not "1 month ago".
+Month and year thresholds use elapsed days, not calendar month boundaries. Under 28 days is always expressed in weeks — a 7-day gap that crosses a month boundary shows as "last week", not "last month". 28+ days in different calendar months shows as months.
 
 Throws `RangeError` if `currentDate` or `relativeTo` is invalid — no silent garbage output.
 
@@ -821,15 +826,16 @@ Sett(serverDate.toDate()).formatForBackend()
 
 ## Quality
 
-- **577 tests** — every public method, every unit, edge cases including DST transitions, year boundaries, ISO week-year rollovers, and locale-specific weekend/week-start logic
+- **803 tests** — every public method, every unit, edge cases including DST transitions, year boundaries, ISO week-year rollovers, and locale-specific weekend/week-start logic
 - **100% coverage** — statements, branches, functions, and lines
-- **CET/CEST suite** — a dedicated DST test file runs under `TZ=Europe/Berlin` to verify all calendar calculations against a live non-UTC timezone
+- **Three timezone suites** — dedicated suites run under `TZ=Europe/Berlin`, `TZ=America/New_York`, and the main `TZ=UTC` to verify DST calculations in both UTC+ and UTC− environments. New York covers spring-forward (March) and fall-back (November). Kolkata (UTC+5:30, no DST) covers the half-hour offset across all 12 months and every month-end.
 - **Audit** — a structured four-phase audit (bad receiver, bad args, missing args, unknown values, data-flow, consistency) was applied to every function. All findings fixed.
 - **Zero runtime dependencies** — the bundle is the library, nothing else
 
 ```bash
-npm test          # full suite + coverage
-npm run test:cet  # CET/CEST timezone suite
+npm test           # full suite + coverage
+npm run test:cet   # Europe/Berlin (CET/CEST) DST suite
+npm run test:ny    # America/New_York (EST/EDT) DST suite
 ```
 
 ---
