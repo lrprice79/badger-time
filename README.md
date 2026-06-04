@@ -826,7 +826,7 @@ Sett(serverDate.toDate()).formatForBackend()
 
 ## Quality
 
-- **803 tests** — every public method, every unit, edge cases including DST transitions, year boundaries, ISO week-year rollovers, and locale-specific weekend/week-start logic
+- **715 tests** — every public method, every unit, edge cases including DST transitions, year boundaries, ISO week-year rollovers, and locale-specific weekend/week-start logic
 - **100% coverage** — statements, branches, functions, and lines
 - **Three timezone suites** — dedicated suites run under `TZ=Europe/Berlin`, `TZ=America/New_York`, and the main `TZ=UTC` to verify DST calculations in both UTC+ and UTC− environments. New York covers spring-forward (March) and fall-back (November). Kolkata (UTC+5:30, no DST) covers the half-hour offset across all 12 months and every month-end.
 - **Audit** — a structured four-phase audit (bad receiver, bad args, missing args, unknown values, data-flow, consistency) was applied to every function. All findings fixed.
