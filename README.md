@@ -1,8 +1,23 @@
 # badger-time
 
-> The date library that actually understands where your users live.
+> The date library that actually understands where your users are sett.
 
-Zero runtime dependencies. Immutable API. Fully typed. Native `Intl` throughout — no locale bundles, no bloat, no compromises.
+A small, fast library for working with dates and times in JavaScript and TypeScript apps. No extra packages required — it works entirely with tools already built into browsers and Node.js. We dug deep so you don't have to.
+
+---
+
+## What does it do?
+
+Working with dates sounds simple — until your app needs to handle users in different countries, different time zones, and different date formats. Most date libraries assume everyone works Monday to Friday, weeks start on Monday, and times are shown in 24-hour format. That's wrong for a large part of the world.
+
+**badger-time** handles this automatically:
+
+- **Weekends differ by country.** In Saudi Arabia, the weekend is Friday and Saturday. In Israel it is also Friday and Saturday. In most of the world it is Saturday and Sunday. badger-time knows this for every locale (country/language setting) in the world.
+- **Week starts differ by country.** In the US, weeks start on Sunday. In the UK and most of Europe, they start on Monday. badger-time picks the right one automatically.
+- **Time format differs by country.** In the US, people use 12-hour clocks (3:30 PM). In Germany, 24-hour clocks (15:30). badger-time switches automatically based on locale.
+- **Daylight saving time is handled correctly.** Calculating "start of today" or "days between two dates" can give wrong answers when clocks change. badger-time does this correctly.
+
+You set your app's locale once at startup — every date operation and every formatted date in your app picks it up automatically.
 
 ---
 
@@ -16,32 +31,28 @@ yarn add badger-time
 
 ---
 
-## Why badger-time?
+## How does it compare to other libraries?
 
-Every major date library makes the same mistake: they treat the world as if everyone works Monday to Friday, weeks start on Monday, and times are always displayed in 24-hour format. They're wrong.
-
-badger-time uses the browser and Node's built-in `Intl` APIs to get these things right automatically — locale-aware weekends, locale-aware week starts, locale-aware time formatting — with zero extra bundle weight.
-
-| | moment | date-fns | luxon | badger-time |
+| Feature | moment | date-fns | luxon | badger-time |
 |---|:---:|:---:|:---:|:---:|
-| Zero runtime dependencies | ✗ | ✗ | ✅ | ✅ |
-| Immutable API | ✗ | ✅ | ✅ | ✅ |
+| No extra packages needed | ✗ | ✗ | ✅ | ✅ |
+| Dates are never modified in place | ✗ | ✅ | ✅ | ✅ |
 | No `new` keyword required | ✗ | ✅ | ✗ | ✅ |
-| Native `Intl` i18n — no locale bundles | ✗ | ✗ | ✅ | ✅ |
-| DST-safe day/week diffs | ✗ | ✗ | ✅ | ✅ |
-| DST-safe start/end of day → UTC | ✗ | via date-fns-tz | ✅ | ✅ |
-| Local wall-clock factory | ✗ | ✗ | ✅ | ✅ |
-| Fractional diffs | ✅ | ✅ | ✅ | ✅ |
-| Inclusive range bounds | ✅ | partial | ✗ | ✅ |
-| Locale-aware weekend (`weekInfo`) | ✗ | ✗ | ✗ | ✅ |
-| Locale-aware week start (`weekInfo`) | ✗ | ✗ | ✗ | ✅ |
-| Locale-aware hour cycle (12h/24h) | ✗ | ✗ | ✗ | ✅ |
-| Locale-aware business days | ✗ | ✗ | ✗ | ✅ |
-| Date range iterator | ✗ | ✗ | ✗ | ✅ |
-| Countdown with `null` for past dates | ✗ | ✗ | ✗ | ✅ |
-| Native duration formatting (`Intl.DurationFormat`) | ✗ | ✗ | ✗ | ✅ |
-| Reactive global locale (`subscribe`) | ✗ | ✗ | ✗ | ✅ |
-| Bundle size (min+gzip) | ~72 KB | ~14 KB | ~23 KB | **~10 KB** |
+| Uses the platform's built-in locale tools — no separate language files | ✗ | ✗ | ✅ | ✅ |
+| Correct day/week differences across clock changes | ✗ | ✗ | ✅ | ✅ |
+| Correct start/end of day across clock changes | ✗ | via date-fns-tz | ✅ | ✅ |
+| Create a date from a local time (not UTC) | ✗ | ✗ | ✅ | ✅ |
+| Fractional differences (e.g. 1.5 hours) | ✅ | ✅ | ✅ | ✅ |
+| Inclusive range options | ✅ | partial | ✗ | ✅ |
+| Correct weekends for every country | ✗ | ✗ | ✗ | ✅ |
+| Correct week start for every country | ✗ | ✗ | ✗ | ✅ |
+| 12h/24h clock chosen automatically by country | ✗ | ✗ | ✗ | ✅ |
+| Business day calculations per country | ✗ | ✗ | ✗ | ✅ |
+| Date range generator | ✗ | ✗ | ✗ | ✅ |
+| Countdown that returns `null` for past dates | ✗ | ✗ | ✗ | ✅ |
+| Duration formatting in the user's language | ✗ | ✗ | ✗ | ✅ |
+| Reactive global locale (one call updates the whole app) | ✗ | ✗ | ✗ | ✅ |
+| Bundle size (compressed) | ~72 KB | ~14 KB | ~23 KB | **~10 KB** |
 
 ---
 
@@ -50,44 +61,45 @@ badger-time uses the browser and Node's built-in `Intl` APIs to get these things
 ```ts
 import { Badger, Sett, BadgerSettings } from "badger-time";
 
-// Set your app's locale once at startup
+// Tell the library which country/language your app is running in.
+// Do this once at startup — every date operation will use it automatically.
 BadgerSettings.setLocale(new Intl.Locale("en-US"));
 BadgerSettings.defaultTimeZone = "America/New_York";
 
-// Date arithmetic — no new keyword
+// Add 7 days to a date
 Badger("2026-06-15").add(7, "day").toISOString()
 // "2026-06-22T00:00:00.000Z"
 
-// Is a delivery slot today?
+// Check if an order's delivery time is today
 Badger(order.deliveryTime).isToday()
 
-// Format for display — picks up the global locale automatically
+// Format a date for display — picks up locale automatically
 Sett(order.deliveryTime).formatDate()        // "06/15/2026, 03:30:45 PM"
 Sett(order.deliveryTime).formatRelative()    // "in 2 hours"
-Sett(order.deliveryTime).formatTimeOnly()    // "03:30:45 PM"  ← 12h for en-US, auto-detected
+Sett(order.deliveryTime).formatTimeOnly()    // "03:30:45 PM"  (12-hour because en-US)
 
-// Countdown timer
+// Show a countdown — returns null automatically when the date has passed
 Sett(new Date()).formatCountdown(new Date("2026-12-25"))
-// "193 days, 4 hours, 22 minutes, and 11 seconds"  — or null if past
+// "193 days, 4 hours, 22 minutes, and 11 seconds"
 ```
 
 ---
 
 ## API
 
-### Exports
+### The three main exports
 
-| Export | Kind | Purpose |
-|---|---|---|
-| `Badger(date?)` | factory | Date arithmetic, comparison, boundaries, business days, ranges |
-| `Sett(date?, locale?, options?)` | factory | Locale-aware formatting, calendar helpers, countdown |
-| `BadgerSettings` | class | Global locale/timezone defaults + reactive subscriber |
-| `BadgerInstance` | type | TypeScript type for values returned by `Badger()` |
-| `BadgerSettInstance` | type | TypeScript type for values returned by `Sett()` |
+| Export | What it does |
+|---|---|
+| `Badger(date?)` | Date arithmetic — add/subtract time, compare dates, check if a date is today/past/future, generate ranges, business day calculations |
+| `Sett(date?, locale?, options?)` | Formatting — display dates in the user's language, relative time ("2 hours ago"), countdown timers, sending dates to a backend |
+| `BadgerSettings` | Global defaults — set the locale and time zone once, subscribe to locale changes |
 
-No `new` required anywhere. All `Badger` methods return a new instance — the original is never mutated.
+No `new` keyword is needed anywhere. Every operation returns a new value — the original date is never changed.
 
-### TypeScript
+### TypeScript types
+
+If you are using TypeScript, these types are available:
 
 ```ts
 import { Badger, Sett } from "badger-time";
@@ -104,54 +116,49 @@ function formatForDisplay(date: BadgerInstance): BadgerSettInstance {
 
 ---
 
-## Badger — date arithmetic
+## Badger — working with dates
 
-### Construction
+### Creating a date
 
 ```ts
-Badger()                           // current time
-Badger("2026-03-15T10:30:00")     // bare datetime → treated as UTC (Z appended)
-Badger("2026-03-15")              // date-only → UTC midnight
-Badger("2026-03-15T10:30:00Z")    // explicit timezone → used as-is
-Badger("2026-03-15T10:30:00+02:00") // offset → used as-is
-Badger(someDate)                  // copy of a Date object
+Badger()                              // right now
+Badger("2026-03-15T10:30:00")        // a specific date and time (treated as UTC)
+Badger("2026-03-15")                 // a specific date (midnight UTC)
+Badger("2026-03-15T10:30:00Z")       // explicit time zone offset — used as-is
+Badger("2026-03-15T10:30:00+02:00")  // with a +2 hour offset — used as-is
+Badger(someDate)                     // copy of a JavaScript Date object
 ```
 
-**String parsing rules**
-- Date-only strings (`"YYYY-MM-DD"`) → UTC midnight (no `Z` appended — Safari compatibility)
-- Strings with `Z` or `±HH:MM` → used as-is
-- All other bare datetime strings → `Z` appended automatically
-- Empty string → `isValid()` returns `false`
+**How strings are interpreted:**
+- A date-only string like `"2026-03-15"` is treated as midnight UTC
+- A string that already includes a time zone (ends in `Z` or `+02:00`) is used exactly as written
+- Any other date-time string (no time zone) is treated as UTC
 
 ---
 
-### `Badger.fromLocal(date, time)` — local wall-clock
+### Creating a date from local time
 
-Use when a date+time pair from a form or picker represents **local time**, not UTC.
+Use `Badger.fromLocal()` when a date and time come from a form or picker and represent the *user's local time*, not UTC.
 
 ```ts
+// The user selected "22 May 2026 at 00:15" in their local time zone
 const dt = Badger.fromLocal("2026-05-22", "00:15");
-dt.hour;      // 0  — local midnight, not shifted to UTC
-dt.dayOfWeek; // 5  — Friday, correct local day
+dt.hour;      // 0  — local midnight, not shifted
+dt.dayOfWeek; // 5  — Friday in local time
 ```
 
-`date` must be `"YYYY-MM-DD"` and `time` must be `"HH:mm"`.
-
-Throws `RangeError` if:
-- Either argument doesn't match the expected format
-- Month or hour/minute is out of range (`month 0`, `hour 24`, `minute 60`, etc.)
-- The day doesn't exist in the given month (`"2026-02-31"`, `"2026-02-29"` on a non-leap year)
+The date must be `"YYYY-MM-DD"` and the time must be `"HH:mm"`. An error is thrown if the format is wrong or if the date doesn't exist (e.g. `"2026-02-30"`).
 
 ---
 
-### `Badger.min()` / `Badger.max()`
+### Finding the earliest or latest date
 
 ```ts
 const earliest = Badger.min(deadline, today, cutoff);
 const latest   = Badger.max(deadline, today, cutoff);
 ```
 
-Throws `RangeError` if called with no arguments, or if any input is an invalid `Badger`. Use `isValid()` to filter before passing untrusted inputs:
+Throws an error if called with no arguments or if any input is an invalid date. Filter out invalid dates first:
 
 ```ts
 const valid = dates.filter(d => d.isValid());
@@ -160,122 +167,119 @@ const earliest = valid.length ? Badger.min(...valid) : null;
 
 ---
 
-### `Badger.range(start, end, unit)` — date range iterator
+### Generating a list of dates (range)
 
-Returns an array of `Badger` instances from `start` (inclusive) to `end` (exclusive). Day ranges are normalised to midnight; week and month ranges preserve the input time. Throws `RangeError` if either date is invalid.
+Returns an array of dates from `start` up to (but not including) `end`. Useful for building calendars, chart labels, and report headers.
 
 ```ts
-// Build a calendar month grid
+// Every day in June 2026
 Badger.range("2026-06-01", "2026-07-01", "day")
-// → [Jun 1, Jun 2, … Jun 30]  — 30 Badger instances at midnight
+// → [Jun 1, Jun 2, … Jun 30]  — 30 dates
 
-// Weekly report headers
+// One entry per week across a quarter
 Badger.range(startOfQuarter, endOfQuarter, "week")
 
-// Monthly chart labels
+// Monthly labels for a chart
 Badger.range("2026-01-01", "2027-01-01", "month")
 // → [Jan 1, Feb 1, Mar 1, … Dec 1]
 
-// Accepts strings, Dates, or Badger instances interchangeably
+// Strings, plain Dates, and Badger instances all work interchangeably
 Badger.range(new Date("2026-06-01"), new Date("2026-06-08"), "day")
-Badger.range(Badger("2026-06-01"), "2026-06-08", "day")
 ```
 
 ---
 
-### Getters
+### Reading parts of a date
 
 ```ts
 const dt = Badger("2026-07-04T15:30:45.123Z");
 
 dt.year        // 2026
-dt.month       // 7        (1-indexed — 1 = January)
+dt.month       // 7        (1 = January, 12 = December)
 dt.day         // 4
 dt.hour        // 15
 dt.minute      // 30
 dt.second      // 45
 dt.millisecond // 123
-dt.dayOfWeek   // 6        (0 = Sunday … 6 = Saturday, local time)
-dt.dayOfYear   // 185      (1–366, local calendar date)
-dt.weekYear    // 2026     (ISO week-year — may differ from .year at year boundaries)
+dt.dayOfWeek   // 6        (0 = Sunday, 1 = Monday … 6 = Saturday, in local time)
+dt.dayOfYear   // 185      (which day of the year this is, 1–366)
+dt.weekYear    // 2026     (the ISO year for the week — may differ at year boundaries)
 dt.quarter     // 3        (1–4)
 ```
 
 ---
 
-### Arithmetic
+### Adding and subtracting time
 
 ```ts
-dt.add(7, "day")
-dt.subtract(1, "month")
-dt.add(-2, "hour")
+dt.add(7, "day")          // 7 days later
+dt.subtract(1, "month")   // 1 month earlier
+dt.add(-2, "hour")        // 2 hours earlier (negative numbers work)
 
-// Duration objects — apply multiple units at once
+// Apply several units at once
 dt.add({ days: 7, hours: 2, minutes: 30 })
 dt.subtract({ months: 1, days: 5 })
 ```
 
-Singular and plural keys both work (`day`/`days`, `month`/`months`, etc.).
+Singular and plural both work: `"day"` and `"days"`, `"month"` and `"months"`, etc.
 
-**Units:** `"year"` `"quarter"` `"month"` `"week"` `"day"` `"hour"` `"minute"` `"second"` `"millisecond"`
+**Available units:** `"year"`, `"quarter"`, `"month"`, `"week"`, `"day"`, `"hour"`, `"minute"`, `"second"`, `"millisecond"`
 
-> Month and year addition clamps to the last valid day — Jan 31 + 1 month → Feb 28/29, not Mar 3.
-
-`add` and `subtract` throw `RangeError` for `NaN` or `Infinity` amounts.
+> Adding months clamps to the last valid day of the target month — January 31 + 1 month becomes February 28 or 29, not March 3.
 
 ---
 
-### `set()` — replace a single field
+### Changing one field
 
 ```ts
-dt.set("year", 2030)         // new Badger with just the year changed
-dt.set("month", 12)          // 1-indexed — December
+dt.set("year", 2030)    // returns a new date with just the year changed
+dt.set("month", 12)     // 1-indexed — 12 is December
 dt.set("hour", 9)
 
-// Clamps to last valid day when the target month is shorter
-Badger("2026-01-31").set("month", 2)  // → Feb 28 (not Mar 3)
+// Clamps to the last valid day if needed
+Badger("2026-01-31").set("month", 2)  // → February 28
 ```
 
-Throws `RangeError` for out-of-range values (`month < 1`, `hour > 23`, etc.) or `NaN`/`Infinity`.
+Throws an error for impossible values (e.g. month 0, hour 25) or `NaN`.
 
 ---
 
 ### Business days
 
-Locale-aware — uses `Intl.Locale` `weekInfo` to determine the correct weekend for any locale worldwide. Saudi Arabia skips Friday+Saturday; Israel skips Friday+Saturday; most of Europe skips Saturday+Sunday.
+This is where badger-time is unique. It uses built-in browser/Node tools to know which days are weekends for every country in the world — no hard-coded rules, no extra data files.
 
-**Resolution order for the locale:** explicit argument → `BadgerSettings.defaultLocale` → Saturday+Sunday.
+**Weekend rules are looked up in this order:** explicit locale argument → `BadgerSettings.defaultLocale` → Saturday + Sunday.
 
 ```ts
-// Uses BadgerSettings.defaultLocale if set, otherwise Sat+Sun
+// Standard week (Saturday + Sunday weekend)
 Badger("2026-06-12").isBusinessDay()    // true  (Friday)
 Badger("2026-06-13").isBusinessDay()    // false (Saturday)
 Badger("2026-06-15").isWeekend()        // false (Monday)
 Badger("2026-06-20").isWeekend()        // true  (Saturday)
 
-// Pass a locale explicitly to override
-Badger("2026-06-12").isBusinessDay(new Intl.Locale("ar-SA"))  // false (Friday is weekend in ar-SA)
-Badger("2026-06-14").isBusinessDay(new Intl.Locale("ar-SA"))  // true  (Sunday is a workday in ar-SA)
+// Saudi Arabia uses a Friday + Saturday weekend
+Badger("2026-06-12").isBusinessDay(new Intl.Locale("ar-SA"))  // false (Friday is the weekend)
+Badger("2026-06-14").isBusinessDay(new Intl.Locale("ar-SA"))  // true  (Sunday is a workday)
 
-// Add/subtract business days — skips the correct weekend for the locale
-// n must be a non-negative integer — floats like 1.5 throw RangeError
+// Add business days — skips the correct weekends for the locale
+// The count must be a whole number — 1.5 throws an error
 Badger("2026-06-12").addBusinessDays(1)                             // Mon Jun 15 (skips Sat+Sun)
 Badger("2026-06-12").addBusinessDays(1, new Intl.Locale("ar-SA"))  // Sun Jun 14 (skips Fri+Sat)
 Badger("2026-06-15").subtractBusinessDays(1)                        // Fri Jun 12
 
-// Set once, works everywhere
+// Set the locale once — all business day methods pick it up
 BadgerSettings.setLocale(new Intl.Locale("ar-SA"));
-Badger("2026-06-12").isBusinessDay()   // false — picks up ar-SA from global settings
-Badger("2026-06-12").addBusinessDays(1) // Sun Jun 14 — same
+Badger("2026-06-12").isBusinessDay()    // false — uses ar-SA automatically
+Badger("2026-06-12").addBusinessDays(1) // Sun Jun 14
 ```
 
-No other date library does this natively.
+No other date library does this natively. Other libraries just don't give a badger.
 
 ---
 
 ### Countdown
 
-Returns `{ days, hours, minutes, seconds }` until a future date, or `null` if the date has passed. `null` makes the expired state explicit — TypeScript enforces you handle it.
+Returns the time remaining until a future date as days, hours, minutes, and seconds. Returns `null` if the date has already passed — so you always know you need to handle the "expired" case.
 
 ```ts
 Badger("2026-12-25").countdown()
@@ -284,155 +288,157 @@ Badger("2026-12-25").countdown()
 Badger("2025-01-01").countdown()
 // null — already passed
 
-// Custom anchor (useful for tests and server-side rendering)
+// Useful in tests: provide a fixed "now" instead of the real current time
 Badger("2026-12-25").countdown(new Date("2026-06-01T00:00:00Z"))
 // { days: 207, hours: 0, minutes: 0, seconds: 0 }
 
-// Pair with Sett.formatCountdown() for a formatted display string
+// Pair with Sett.formatCountdown() to get a display string
 Sett(new Date()).formatCountdown(new Date("2026-12-25"))
-// "193 days, 4 hours, 22 minutes, and 11 seconds"  (Node 24+ / modern browsers)
-// null if past
+// "193 days, 4 hours, 22 minutes, and 11 seconds"
+// null if the date has passed
 ```
 
 ---
 
-### Boundaries
+### Start and end of a period
 
-All `startOf` / `endOf` operations are in **local time** and never mutate the original.
+All operations use **local time** and never change the original date.
 
 ```ts
-dt.startOf("year")    // 1 Jan, 00:00:00.000  (local midnight)
-dt.startOf("quarter") // first day of the quarter, local midnight
-dt.startOf("month")   // first of the month, local midnight
-dt.startOf("week")    // Monday 00:00:00.000  (ISO 8601, local time)
-dt.startOf("day")     // 00:00:00.000
-dt.startOf("hour")
+dt.startOf("year")    // 1 Jan, midnight (local time)
+dt.startOf("quarter") // first day of the quarter, midnight
+dt.startOf("month")   // first of the month, midnight
+dt.startOf("week")    // Monday 00:00:00 (ISO 8601 standard)
+dt.startOf("day")     // midnight (00:00:00.000)
+dt.startOf("hour")    // top of the hour
 dt.startOf("minute")
 dt.startOf("second")
-dt.startOf("millisecond")  // no-op — returns clone
 
-dt.endOf("year")      // 31 Dec, 23:59:59.999  (local)
+dt.endOf("year")      // 31 Dec, 23:59:59.999 (local time)
 dt.endOf("quarter")
-dt.endOf("month")     // last day, 23:59:59.999
+dt.endOf("month")     // last day of the month, 23:59:59.999
 dt.endOf("week")      // Sunday 23:59:59.999
 dt.endOf("day")       // 23:59:59.999
 dt.endOf("hour")
 dt.endOf("minute")
 dt.endOf("second")
-dt.endOf("millisecond")  // no-op — returns clone
 ```
 
 ---
 
-### Comparison
+### Comparing dates
 
 ```ts
 dt.isBefore(other)
 dt.isAfter(other)
 dt.isSameOrBefore(other)
 dt.isSameOrAfter(other)
-dt.isSame(other)             // exact millisecond
+dt.isSame(other)             // same exact millisecond
 dt.isSame(other, "day")      // same calendar day
 dt.isSame(other, "month")    // same month
-dt.isSame(other, "week")     // same ISO week (accounts for year boundaries)
+dt.isSame(other, "week")     // same ISO week (handles year boundaries correctly)
 dt.isSame(other, "quarter")
 ```
 
-**`isBetween`** — exclusive by default, configurable:
+**Checking if a date is within a range:**
 
 ```ts
-date.isBetween(open, close)                                      // false at boundaries
-open.isBetween(open, close, { includeStart: true })              // true at start
-close.isBetween(open, close, { includeEnd: true })               // true at end
+// By default, the boundaries themselves are not included
+date.isBetween(open, close)
+
+// Include the start boundary
+open.isBetween(open, close, { includeStart: true })
+
+// Include the end boundary
+close.isBetween(open, close, { includeEnd: true })
+
+// Include both
 date.isBetween(open, close, { includeStart: true, includeEnd: true })
 ```
 
-Throws `RangeError` if either boundary is an invalid Date, or if `start` is after `end`.
+Throws an error if either boundary is invalid, or if `start` is after `end`.
 
-**`clamp`** — constrain a date to a range:
+**Clamping a date to a range:**
 
 ```ts
-Badger("2025-01-01").clamp(min, max)  // → min  (clamped early)
-Badger("2027-01-01").clamp(min, max)  // → max  (clamped late)
-Badger("2026-06-15").clamp(min, max)  // → unchanged
+// Returns the closest valid date within the range
+Badger("2025-01-01").clamp(min, max)  // → min  (too early, clamped to start)
+Badger("2027-01-01").clamp(min, max)  // → max  (too late, clamped to end)
+Badger("2026-06-15").clamp(min, max)  // → unchanged (already within range)
 ```
 
-Throws `RangeError` if either bound is invalid, or if `min` is after `max`.
-
-**Convenience helpers:**
+**Quick helpers:**
 
 ```ts
-dt.isToday()       // local calendar day
+dt.isToday()       // is this date today (in local time)?
 dt.isYesterday()
 dt.isTomorrow()
-dt.isPast()        // strictly before now
-dt.isFuture()      // strictly after now
-dt.isWeekend()     // local day of week — respects BadgerSettings.defaultLocale
-dt.isWeekday()     // local day of week — respects BadgerSettings.defaultLocale
+dt.isPast()        // is this date before right now?
+dt.isFuture()      // is this date after right now?
+dt.isWeekend()     // is this a weekend day? (respects BadgerSettings.defaultLocale)
+dt.isWeekday()     // is this a working day? (respects BadgerSettings.defaultLocale)
 ```
 
-All comparisons accept `Badger | Date`.
+All comparisons accept either a `Badger` instance or a plain JavaScript `Date`.
 
 ---
 
-### Diff
+### Difference between two dates
 
 ```ts
-a.diff(b, "hour")        // 1    — whole number, floored
-a.diff(b, "hour", true)  // 1.5  — fractional
+a.diff(b, "hour")        // 1    — whole hours, rounded down
+a.diff(b, "hour", true)  // 1.5  — fractional (pass true as the third argument)
 b.diff(a, "minute")      // -90  — negative when b is before a
-a.diff(b, "second", true) // fractional seconds
 ```
 
-`diff("day")` and `diff("week")` use calendar dates, not raw milliseconds — **DST-safe**. `diff("month")` and `diff("year")` are calendar-based, not approximated.
+Day and week differences account for daylight saving time correctly — they count calendar days, not raw hours.
 
 ---
 
 ### Other utilities
 
 ```ts
-dt.toISOString()              // "2026-03-15T10:30:00.000Z"  — throws RangeError if invalid
-dt.toDate()                   // copy of underlying Date — mutations don't affect Badger
-dt.toUnixTimestamp()          // Unix seconds (floored) — NaN if invalid
-dt.toMillisecondTimestamp()   // Unix milliseconds — NaN if invalid
+dt.toISOString()              // "2026-03-15T10:30:00.000Z"  — throws if invalid
+dt.toDate()                   // a plain JavaScript Date (a copy — changes won't affect the Badger)
+dt.toUnixTimestamp()          // seconds since 1 Jan 1970 (floored)
+dt.toMillisecondTimestamp()   // milliseconds since 1 Jan 1970
 dt.toObject()                 // { year, month, day, hour, minute, second, millisecond }
 dt.clone()                    // independent copy
-dt.isValid()                  // false for invalid/corrupt dates — check before using
-dt.getDaysInMonth()           // 28–31
-dt.daysInYear()               // 365 or 366 (NaN for invalid dates)
+dt.isValid()                  // false if the date is corrupt or unparseable — always check this
+dt.getDaysInMonth()           // how many days are in the date's month (28–31)
+dt.daysInYear()               // 365 or 366 (NaN if invalid)
 dt.getWeekNumber()            // ISO 8601 week number (1–53)
-dt.isLeapYear()               // false for invalid dates
+dt.isLeapYear()               // is this a leap year?
 ```
 
 ---
 
 ### Invalid dates
 
-Always call `isValid()` before using a `Badger` constructed from untrusted input. Methods follow consistent, documented rules for invalid receivers:
+Always call `isValid()` before using a `Badger` that was created from user input or an external source. When a date is invalid, methods return safe fallback values rather than crashing:
 
-| Category | Methods | Returns |
+| Type of method | Examples | Returns when invalid |
 |---|---|---|
-| **Boolean checks** | `isWeekend`, `isWeekday`, `isBusinessDay`, `isLeapYear`, `isPast`, `isFuture`, `isToday`, `isBefore`, `isAfter`, … | `false` |
-| **Numeric getters** | `year`, `month`, `day`, `dayOfYear`, `diff`, `toUnixTimestamp`, `daysInYear`, … | `NaN` |
-| **Countdown** | `countdown()` | `null` |
-| **Arithmetic** | `add`, `subtract`, `startOf`, `endOf`, `clone` | Invalid `Badger` (chain stays invalid) |
-| **Business day iterators** | `addBusinessDays`, `subtractBusinessDays` | Invalid clone — no iteration |
-| **`toISOString()`** | — | Throws `RangeError` (can't produce a meaningful string) |
-| **`Sett` formatters** | `formatDate`, `formatTimeOnly`, `getDayName`, … | Throw `RangeError` with the method name |
+| Yes/no checks | `isWeekend`, `isBusinessDay`, `isLeapYear`, `isPast`, `isBefore`… | `false` |
+| Number values | `year`, `month`, `day`, `diff`, `toUnixTimestamp`… | `NaN` |
+| Countdown | `countdown()` | `null` |
+| Arithmetic | `add`, `subtract`, `startOf`, `endOf`, `clone` | An invalid Badger (further chaining stays invalid) |
+| Business day iteration | `addBusinessDays`, `subtractBusinessDays` | Invalid clone — no looping |
+| `toISOString()` | — | Throws an error (there is no meaningful string to produce) |
+| `Sett` formatters | `formatDate`, `formatTimeOnly`, `getDayName`… | Throw an error |
 
 ```ts
 const bad = Badger("not-a-date");
-bad.isValid()            // false — always check this first
+bad.isValid()            // false — check this first
 bad.isWeekend()          // false
-bad.isWeekday()          // false
 bad.countdown()          // null
 bad.daysInYear()         // NaN
-bad.addBusinessDays(5)   // returns invalid clone, no looping
+bad.addBusinessDays(5)   // returns an invalid clone — no looping happens
 
-// toISOString is the one method that throws — it can't produce a string for invalid input
-bad.toISOString()        // RangeError: Badger.toISOString(): date is not valid…
+// toISOString is the one that throws — it can't produce a string for an invalid date
+bad.toISOString()        // Error: Badger.toISOString(): date is not valid…
 
-// Badger.min / Badger.max throw on invalid inputs — filter first if needed
+// Badger.min and Badger.max also throw on invalid input — filter first
 const dates = [Badger("2026-01-01"), Badger("bad"), Badger("2026-06-15")];
 const valid = dates.filter(d => d.isValid());
 Badger.min(...valid)     // Badger("2026-01-01")
@@ -440,21 +446,23 @@ Badger.min(...valid)     // Badger("2026-01-01")
 
 ---
 
-## Sett — locale-aware formatting
+## Sett — displaying and formatting dates
 
-Defaults to `en-GB` / `Europe/London` unless overridden by `BadgerSettings`.
+`Sett` turns a date into a string your users can read. It uses the platform's built-in formatting tools, so it automatically uses the right format for the user's country — no extra language files, no manual configuration per locale.
 
-### Construction
+Defaults to British English (`en-GB`) and London time unless you override it with `BadgerSettings`.
 
-String inputs follow the same UTC normalization rules as `Badger()` — bare datetime strings get `"Z"` appended, date-only `"YYYY-MM-DD"` strings are UTC midnight.
+### Creating a Sett
+
+String inputs follow the same rules as `Badger()` — bare date-time strings are treated as UTC.
 
 ```ts
 Sett()                                              // now, global defaults
-Sett(someDate)
-Sett("2026-03-15T10:30:00")                         // bare string → UTC (Z appended)
+Sett(someDate)                                      // specific date, global defaults
+Sett("2026-03-15T10:30:00")                         // string input → treated as UTC
 Sett("2026-03-15")                                  // date-only → UTC midnight
-Sett(someDate, new Intl.Locale("sv-SE"))
-Sett(someDate, new Intl.Locale("sv-SE"), {
+Sett(someDate, new Intl.Locale("sv-SE"))            // override the locale
+Sett(someDate, new Intl.Locale("sv-SE"), {          // override locale + formatting options
     timeZone: "Europe/Stockholm",
     year: "numeric",
     month: "2-digit",
@@ -462,82 +470,84 @@ Sett(someDate, new Intl.Locale("sv-SE"), {
 })
 ```
 
-### Display
+### Displaying a date
 
 ```ts
 const s = Sett(new Date("2026-03-15T14:30:45Z"));
 
-s.formatDate()           // "15/03/2026, 15:30:45"  (en-GB / London)
+s.formatDate()           // "15/03/2026, 15:30:45"  (en-GB format, 24-hour)
 s.formatDateOnly()       // "15/03/2026"
-s.formatTimeOnly()       // "15:30:45"   ← auto 24h for en-GB
-s.getDayName()           // "Sunday"     (also: "short" → "Sun" | "narrow" → "S")
-s.getMonthName()         // "March"      (also: "short" → "Mar" | "narrow" → "M")
-s.getDaysOfTheWeek()     // ["Monday", "Tuesday", …]  — starts from locale's first day
+s.formatTimeOnly()       // "15:30:45"  (24-hour for en-GB, chosen automatically)
+s.getDayName()           // "Sunday"   (pass "short" → "Sun", "narrow" → "S")
+s.getMonthName()         // "March"    (pass "short" → "Mar", "narrow" → "M")
+s.getDaysOfTheWeek()     // ["Monday", "Tuesday", …]  — starts on the locale's first day
 s.getMonthsOfTheYear()   // ["January", …, "December"]
 ```
 
-### Hour cycle — automatic 12h/24h per locale
+### 12-hour vs 24-hour clocks — automatic
 
-`formatTimeOnly()` reads `Intl.Locale.hourCycles` and switches automatically. No configuration needed.
+`formatTimeOnly()` reads the locale and picks the right clock format. You don't need to configure anything.
 
 ```ts
+// US English — 12-hour clock
 Sett(new Date("2026-06-15T15:30:45Z"), new Intl.Locale("en-US"), { timeZone: "UTC" }).formatTimeOnly()
-// "03:30:45 PM"  ← 12-hour for en-US
+// "03:30:45 PM"
 
+// German — 24-hour clock
 Sett(new Date("2026-06-15T15:30:45Z"), new Intl.Locale("de-DE"), { timeZone: "UTC" }).formatTimeOnly()
-// "15:30:45"     ← 24-hour for de-DE
+// "15:30:45"
 
+// Arabic (Saudi Arabia) — 12-hour in Arabic numerals
 Sett(new Date("2026-06-15T15:30:45Z"), new Intl.Locale("ar-SA"), { timeZone: "UTC" }).formatTimeOnly()
-// 12-hour format in Arabic numerals
 ```
 
-### Locale-aware calendar
+### Locale-aware calendar helpers
 
-`isWeekend()` and `startOfWeek()` use `Intl.Locale.weekInfo` — correct for every locale worldwide. Both use **local time**, so they give the right answer even for dates near UTC midnight in non-UTC timezones.
+`isWeekend()` and `startOfWeek()` use the platform's built-in country data — correct for every country worldwide. Both use local time, so they give the right answer even near midnight in non-UTC time zones.
 
 ```ts
-// Saudi Arabia: Friday+Saturday are the weekend
+// Saudi Arabia: Friday and Saturday are the weekend
 Sett(new Date("2026-06-05"), new Intl.Locale("ar-SA")).isWeekend()  // true  (Friday)
 Sett(new Date("2026-06-07"), new Intl.Locale("ar-SA")).isWeekend()  // false (Sunday is a workday)
 
-// Week start varies by locale — returns local midnight of the first day of the week
+// Where does the week start?
 Sett(new Date("2026-06-10T12:00:00"), new Intl.Locale("en-US")).startOfWeek()
-// → Date at local midnight of Sunday Jun 7
+// → Midnight on Sunday Jun 7  (US weeks start Sunday)
 
 Sett(new Date("2026-06-10T12:00:00"), new Intl.Locale("en-GB")).startOfWeek()
-// → Date at local midnight of Monday Jun 8
+// → Midnight on Monday Jun 8  (UK weeks start Monday)
 ```
 
 ### Relative time
+
+Shows how long ago or how far in the future a date is — like "3 hours ago" or "in 2 days".
 
 ```ts
 s.formatRelative()             // "3 hours ago" / "in 2 days" / "last month"
 s.formatRelative(anchorDate)   // relative to a specific date instead of now
 ```
 
-Month and year thresholds use elapsed days, not calendar month boundaries. Under 28 days is always expressed in weeks — a 7-day gap that crosses a month boundary shows as "last week", not "last month". 28+ days in different calendar months shows as months.
+Month and year thresholds are based on elapsed days, not calendar month boundaries. A 7-day gap that crosses a month boundary shows as "last week", not "last month". 28+ days in different months shows as months.
 
-Throws `RangeError` if `currentDate` or `relativeTo` is invalid — no silent garbage output.
-
-All `Sett` formatting methods throw `RangeError` (naming the method) when `currentDate` is invalid. Check `isNaN(bs.currentDate.getTime())` or use a valid `Badger`/`Date` to construct.
+Throws an error if the date is invalid — never silently shows garbage.
 
 ### Duration formatting
 
-Uses `Intl.DurationFormat` — the platform formats the string in the locale's natural language, with no hand-rolled logic.
+Shows a duration in the user's natural language. Uses the platform's built-in tools — no hand-rolled formatting.
 
-> Requires Node ≥ 24, Chrome 127+, Firefox 127+, Safari 17.4+. Throws in older environments.
+> Requires Node 24+, Chrome 127+, Firefox 127+, or Safari 17.4+. Throws in older environments.
 
 ```ts
 Sett(new Date(), new Intl.Locale("en-GB")).formatDuration({ hours: 3, minutes: 22 })
 // "3 hours and 22 minutes"
 
 Sett(new Date(), new Intl.Locale("de-DE")).formatDuration({ hours: 2, minutes: 30 })
-// "2 Stunden und 30 Minuten"
+// "2 Stunden und 30 Minuten"  (German)
 
 Sett(new Date(), new Intl.Locale("fr-FR")).formatDuration({ days: 1, hours: 4 })
-// "1 jour et 4 heures"
+// "1 jour et 4 heures"  (French)
 
-// Pair with diff() — elapsed time in one line
+// Calculate elapsed time and format in one go
 const minutes = Badger(startTime).diff(Badger(), "minute");
 Sett(new Date()).formatDuration({ minutes })
 // "47 minutes"
@@ -545,7 +555,7 @@ Sett(new Date()).formatDuration({ minutes })
 
 ### Countdown display
 
-`formatCountdown()` combines `Badger.countdown()` and `formatDuration()` into one call. Returns `null` if the date is in the past — TypeScript enforces you handle it.
+Combines the countdown calculation with duration formatting in a single call. Returns `null` if the date has passed.
 
 ```ts
 Sett(new Date()).formatCountdown(new Date("2026-12-25"))
@@ -555,7 +565,7 @@ Sett(new Date()).formatCountdown(new Date("2025-01-01"))
 // null — date is in the past
 ```
 
-Live timer in React Native — updates every second, switches to `"Expired"` automatically:
+Live countdown timer in React Native — updates every second, switches to `"Expired"` when done:
 
 ```tsx
 function CountdownLabel({ endsAt }: { endsAt: string }) {
@@ -574,22 +584,22 @@ function CountdownLabel({ endsAt }: { endsAt: string }) {
 }
 ```
 
-### Backend serialisation
+### Sending dates to a backend server
+
+These methods convert a date to a standard format (UTC ISO 8601) suitable for sending to a server. Start/end of day calculations account for daylight saving time — the correct UTC offset is resolved for that specific date, not approximated.
 
 ```ts
 s.formatForBackend()              // "2026-03-15T10:30:45.000Z"
-s.formatForBackendToStartOfDay()  // midnight in configured timezone → UTC ISO
-s.formatForBackendToEndOfDay()    // 23:59:59.999 in configured timezone → UTC ISO
+s.formatForBackendToStartOfDay()  // midnight in the configured time zone → UTC
+s.formatForBackendToEndOfDay()    // 23:59:59.999 in the configured time zone → UTC
 ```
 
-Both start/end of day are **DST-safe** — the correct UTC offset is resolved for that specific calendar date, not approximated.
-
 ```ts
-// London BST (UTC+1) — midnight on 15 Jul = 23:00 UTC on 14 Jul
+// London is UTC+1 in summer (BST) — midnight on 15 Jul = 23:00 UTC on 14 Jul
 Sett("2026-07-15T12:00:00Z").formatForBackendToStartOfDay()
 // "2026-07-14T23:00:00.000Z"
 
-// London GMT (UTC+0) — midnight on 15 Jan = 00:00 UTC
+// London is UTC+0 in winter (GMT) — midnight on 15 Jan = 00:00 UTC
 Sett("2026-01-15T12:00:00Z").formatForBackendToStartOfDay()
 // "2026-01-15T00:00:00.000Z"
 ```
@@ -598,7 +608,7 @@ Sett("2026-01-15T12:00:00Z").formatForBackendToStartOfDay()
 
 ## BadgerSettings — global defaults
 
-Set once at app startup. Every `Sett()` and `Badger()` call without an explicit locale inherits these automatically.
+Set your app's locale and time zone once at startup. Every `Sett()` and `Badger()` call will inherit these automatically, unless you override them at the call site.
 
 ```ts
 import { BadgerSettings } from "badger-time";
@@ -606,24 +616,25 @@ import { BadgerSettings } from "badger-time";
 BadgerSettings.defaultLocale   = new Intl.Locale("sv-SE");
 BadgerSettings.defaultTimeZone = "Europe/Stockholm";
 
-// No locale arg needed anywhere in the app
-Sett(order.deliveryTime).formatDate()       // sv-SE / Stockholm
-Sett(order.deliveryTime).isWeekend()        // uses sv-SE weekInfo
-Sett(order.deliveryTime).formatTimeOnly()   // 24h (sv-SE is 24-hour)
+// No locale argument needed anywhere in the app
+Sett(order.deliveryTime).formatDate()       // formatted in sv-SE / Stockholm
+Sett(order.deliveryTime).isWeekend()        // uses Swedish weekend rules
+Sett(order.deliveryTime).formatTimeOnly()   // 24-hour (Sweden uses 24-hour clocks)
 
-// Badger picks it up too — business day methods use defaultLocale automatically
-Badger("2026-06-12").isBusinessDay()        // respects sv-SE weekend definition
-Badger("2026-06-12").addBusinessDays(3)     // skips sv-SE weekends
+// Badger picks up the locale too
+Badger("2026-06-12").isBusinessDay()        // uses Swedish weekend definition
+Badger("2026-06-12").addBusinessDays(3)     // skips Swedish weekends
 
-// Explicit locale always wins over global default
-Sett(date, new Intl.Locale("fr-FR")).formatDate()  // → fr-FR regardless of global
+// You can always override the global locale for a single call
+Sett(date, new Intl.Locale("fr-FR")).formatDate()  // → French format, ignores global
 ```
 
 ### Reactive language switching
 
-`setLocale()` updates the global **and** notifies all active subscribers atomically. One call, entire app updates.
+`setLocale()` updates the global locale and immediately notifies all active listeners. One call, entire app updates.
 
 ```ts
+// Listen for locale changes
 const unsub = BadgerSettings.subscribe(locale => {
     console.log("Switched to", locale.baseName);
 });
@@ -631,13 +642,13 @@ const unsub = BadgerSettings.subscribe(locale => {
 BadgerSettings.setLocale(new Intl.Locale("fr-FR"));
 // → "Switched to fr-FR"
 
-unsub(); // stop listening — good practice in component cleanup
+unsub(); // stop listening — important to clean up in components
 ```
 
 ### React Native
 
 ```tsx
-// localeContext.tsx
+// localeContext.tsx — wrap your app with this so any component can get the current locale
 import { createContext, useContext, useState, useEffect } from "react";
 import { BadgerSettings } from "badger-time";
 
@@ -658,7 +669,7 @@ export const useLocale = () => useContext(LocaleContext);
 ```
 
 ```tsx
-// Language switcher — one call updates every date in the app
+// A language switcher button — one press updates every date in the app
 <Button
     title="Français"
     onPress={() => BadgerSettings.setLocale(new Intl.Locale("fr-FR"))}
@@ -666,7 +677,7 @@ export const useLocale = () => useContext(LocaleContext);
 ```
 
 ```tsx
-// Any component — re-renders automatically on locale change
+// Any component — automatically re-renders when the locale changes
 function OrderCard({ order }) {
     const locale = useLocale();
     return (
@@ -681,6 +692,7 @@ function OrderCard({ order }) {
 ### React (web)
 
 ```tsx
+// Restore the saved locale when the app loads
 useEffect(() => {
     const saved = localStorage.getItem("locale");
     if (saved) BadgerSettings.setLocale(new Intl.Locale(saved));
@@ -693,7 +705,7 @@ useEffect(() => {
 export const appLocale = ref(new Intl.Locale("en-GB"));
 BadgerSettings.subscribe(locale => { appLocale.value = locale; });
 
-// In component
+// In a component
 const formatted = computed(() => Sett(order.deliveryTime, appLocale.value).formatDate());
 ```
 
@@ -707,9 +719,9 @@ BadgerSettings.subscribe(locale => {
 });
 ```
 
-### `reset()`
+### Resetting (for tests)
 
-Clears locale, timezone, and all subscribers. Essential in tests to prevent state leaking between test cases.
+Clears the locale, time zone, and all subscribers. Essential in tests to prevent settings from leaking between test cases.
 
 ```ts
 afterEach(() => BadgerSettings.reset());
@@ -717,25 +729,25 @@ afterEach(() => BadgerSettings.reset());
 
 ---
 
-## Real-world recipes
+## Real-world examples
 
 ### Delivery app — order card
 
 ```ts
 const order = { dueAt: "2026-06-15T18:30:00Z", locale: new Intl.Locale("en-GB") };
 
-// Is it due today?
+// Is the order due today?
 Badger(order.dueAt).isToday()
 
-// How many minutes until due?
+// How many minutes until it's due?
 Badger(order.dueAt).diff(Badger(), "minute")
 
-// Display the time in the customer's locale (12h/24h automatic)
+// Display the due time in the customer's locale (12h/24h chosen automatically)
 Sett(order.dueAt, order.locale).formatTimeOnly()
 
-// Countdown display
+// Show a countdown — or null if already past due
 Sett(new Date(), order.locale).formatCountdown(new Date(order.dueAt))
-// "3 hours and 22 minutes"  — or null if already past due
+// "3 hours and 22 minutes"
 ```
 
 ### HR system — notice periods
@@ -748,20 +760,22 @@ const lastDay = Badger(terminationDate).addBusinessDays(30, employeeLocale);
 const workingDays = Badger.range(Badger(), lastDay, "day")
     .filter(d => d.isBusinessDay(employeeLocale)).length;
 
-// "Your last working day is Monday 27 July 2026"
+// Display the last working day
 Sett(lastDay.toDate(), employeeLocale).formatDateOnly()
+// "Monday 27 July 2026"
 ```
 
 ### Calendar UI — month grid
 
 ```ts
+// Get every day in June 2026
 const days = Badger.range(
     Badger("2026-06-01").startOf("month"),
     Badger("2026-06-01").endOf("month").add(1, "day"),
     "day"
 );
 
-// Locale-aware week start — US calendars begin Sunday, UK begin Monday
+// Week start and day names vary by country
 const weekStart = Sett(new Date(), userLocale).startOfWeek();
 const weekDayNames = Sett(new Date(), userLocale).getDaysOfTheWeek("short");
 // en-GB: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -792,11 +806,15 @@ function EventBanner({ eventDate }: { eventDate: string }) {
 ```ts
 const locale = new Intl.Locale("en-GB");
 const tz = "Europe/London";
-const opts = { timeZone: tz, year: "numeric" as const, month: "2-digit" as const,
-               day: "2-digit" as const, hour: "2-digit" as const,
-               minute: "2-digit" as const, second: "2-digit" as const, hour12: false };
+const opts = {
+    timeZone: tz,
+    year: "numeric" as const, month: "2-digit" as const,
+    day: "2-digit" as const, hour: "2-digit" as const,
+    minute: "2-digit" as const, second: "2-digit" as const,
+    hour12: false
+};
 
-// DST-safe week boundaries — correct even on the day clocks change
+// Get the correct start and end of this week, accounting for clock changes
 const weekStart = Sett(new Date(), locale, opts);
 const weekEnd   = Sett(Badger().endOf("week").toDate(), locale, opts);
 
@@ -806,18 +824,18 @@ const to   = weekEnd.formatForBackendToEndOfDay();
 await fetch(`/api/orders?from=${from}&to=${to}`);
 ```
 
-### Comparing dates across timezones
+### Comparing dates across time zones
 
 ```ts
-// Server returns UTC timestamps — Badger handles them correctly
+// Server returns UTC timestamps — badger-time handles them correctly
 const serverDate = Badger("2026-06-15T22:00:00Z");
 
-// User is in CEST (UTC+2) — this is 00:00 local on Jun 16
-serverDate.isToday()    // depends on the user's local timezone — correct
-serverDate.dayOfWeek    // local day of week — correct for the user's timezone
-serverDate.isWeekend()  // local weekend check — correct
+// A user in Central European Summer Time (UTC+2) sees this as midnight on Jun 16
+serverDate.isToday()    // correct for the user's local time zone
+serverDate.dayOfWeek    // correct local day of week
+serverDate.isWeekend()  // correct local weekend check
 
-// Backend always gets UTC regardless of user timezone
+// The backend always receives UTC, regardless of the user's time zone
 Sett(serverDate.toDate()).formatForBackend()
 // "2026-06-15T22:00:00.000Z"
 ```
@@ -826,16 +844,16 @@ Sett(serverDate.toDate()).formatForBackend()
 
 ## Quality
 
-- **715 tests** — every public method, every unit, edge cases including DST transitions, year boundaries, ISO week-year rollovers, and locale-specific weekend/week-start logic
+- **715 tests** — every public method, every unit, edge cases including clock change transitions, year boundaries, ISO week rollovers, and locale-specific weekend/week-start logic
 - **100% coverage** — statements, branches, functions, and lines
-- **Three timezone suites** — dedicated suites run under `TZ=Europe/Berlin`, `TZ=America/New_York`, and the main `TZ=UTC` to verify DST calculations in both UTC+ and UTC− environments. New York covers spring-forward (March) and fall-back (November). Kolkata (UTC+5:30, no DST) covers the half-hour offset across all 12 months and every month-end.
-- **Audit** — a structured four-phase audit (bad receiver, bad args, missing args, unknown values, data-flow, consistency) was applied to every function. All findings fixed.
-- **Zero runtime dependencies** — the bundle is the library, nothing else
+- **Three time zone suites** — tests run under Europe/Berlin, America/New_York, and UTC to verify calculations in UTC+ and UTC− zones. New York covers spring-forward (March) and fall-back (November). Kolkata (UTC+5:30, no clock changes) covers the half-hour offset across all months and month-ends
+- **Structured audit** — every function was audited for bad inputs, missing inputs, and unexpected values. All findings fixed
+- **No runtime dependencies** — the bundle is the entire library
 
 ```bash
 npm test           # full suite + coverage
-npm run test:cet   # Europe/Berlin (CET/CEST) DST suite
-npm run test:ny    # America/New_York (EST/EDT) DST suite
+npm run test:cet   # Europe/Berlin (CET/CEST) clock change suite
+npm run test:ny    # America/New_York (EST/EDT) clock change suite
 ```
 
 ---
