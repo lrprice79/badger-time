@@ -29,6 +29,10 @@ npm install badger-time
 yarn add badger-time
 ```
 
+**Requires Node.js 20 or higher.** The library will throw an error on startup if you are running an older version.
+
+> `formatDuration` and `formatCountdown` require Node 24+. Everything else in the library works on Node 20+.
+
 ---
 
 ## How does it compare to other libraries?
@@ -535,7 +539,7 @@ Throws an error if the date is invalid — never silently shows garbage.
 
 Shows a duration in the user's natural language. Uses the platform's built-in tools — no hand-rolled formatting.
 
-> Requires Node 24+, Chrome 127+, Firefox 127+, or Safari 17.4+. Throws in older environments.
+> Requires Node 24+, Chrome 127+, Firefox 127+, or Safari 17.4+. If you call this on an older environment it throws — but the rest of `Sett` continues to work fine on Node 20+.
 
 ```ts
 Sett(new Date(), new Intl.Locale("en-GB")).formatDuration({ hours: 3, minutes: 22 })
