@@ -1,4 +1,11 @@
-# badger-time
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/badger-inverse.png">
+    <img src="assets/badger.png" width="160" alt="badger-time">
+  </picture>
+</p>
+
+<h1 align="center">badger-time</h1>
 
 > The date library that actually understands where your users are sett.
 
