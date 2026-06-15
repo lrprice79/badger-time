@@ -1,5 +1,5 @@
 {
-  "name": "badger-time",
+  "name": "@badger-eco/time",
   "version": "1.0.0",
   "description": "Lightweight date engine and formatter — no moment, no date-fns.",
   "main": "dist/index.js",
