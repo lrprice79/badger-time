@@ -1,8 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="assets/badger-inverse.png">
-    <img src="assets/badger.png" width="160" alt="badger-time">
-  </picture>
+  <img src="assets/badger-logo.png" width="140" alt="badger-time">
 </p>
 
 <h1 align="center">badger-time</h1>
