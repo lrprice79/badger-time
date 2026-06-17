@@ -28,9 +28,9 @@ You set your app's locale once at startup — every date operation and every for
 ## Install
 
 ```bash
-npm install @badger-eco/time
+npm install @purple-brock/time
 # or
-yarn add @badger-eco/time
+yarn add @purple-brock/time
 ```
 
 **Requires Node.js 20 or higher.** The library will throw an error on startup if you are running an older version.
@@ -67,7 +67,7 @@ yarn add @badger-eco/time
 ## Quick start
 
 ```ts
-import { Badger, Sett, BadgerSettings } from "@badger-eco/time";
+import { Badger, Sett, BadgerSettings } from "@purple-brock/time";
 
 // Tell the library which country/language your app is running in.
 // Do this once at startup — every date operation will use it automatically.
@@ -110,8 +110,8 @@ No `new` keyword is needed anywhere. Every operation returns a new value — the
 If you are using TypeScript, these types are available:
 
 ```ts
-import { Badger, Sett } from "@badger-eco/time";
-import type { BadgerInstance, BadgerSettInstance } from "@badger-eco/time";
+import { Badger, Sett } from "@purple-brock/time";
+import type { BadgerInstance, BadgerSettInstance } from "@purple-brock/time";
 
 function addBusinessDays(date: BadgerInstance, n: number): BadgerInstance {
     return date.addBusinessDays(n);
@@ -619,7 +619,7 @@ Sett("2026-01-15T12:00:00Z").formatForBackendToStartOfDay()
 Set your app's locale and time zone once at startup. Every `Sett()` and `Badger()` call will inherit these automatically, unless you override them at the call site.
 
 ```ts
-import { BadgerSettings } from "@badger-eco/time";
+import { BadgerSettings } from "@purple-brock/time";
 
 BadgerSettings.defaultLocale   = new Intl.Locale("sv-SE");
 BadgerSettings.defaultTimeZone = "Europe/Stockholm";
@@ -658,7 +658,7 @@ unsub(); // stop listening — important to clean up in components
 ```tsx
 // localeContext.tsx — wrap your app with this so any component can get the current locale
 import { createContext, useContext, useState, useEffect } from "react";
-import { BadgerSettings } from "@badger-eco/time";
+import { BadgerSettings } from "@purple-brock/time";
 
 const LocaleContext = createContext<Intl.Locale>(new Intl.Locale("en-GB"));
 

@@ -3,7 +3,7 @@
 Lightweight date engine and formatter. Zero runtime dependencies.
 Replaces `moment` and `date-fns` entirely.
 
-- **npm package:** `@badger-eco/time` (org `@badger-eco`; brand/repo name stays `badger-time`)
+- **npm package:** `@purple-brock/time` (org `@purple-brock`; brand/repo name stays `badger-time`)
 - **Requires Node.js 20+.** `formatDuration` / `formatCountdown` require Node 24+.
 
 ---
@@ -26,8 +26,8 @@ src/
 `BadgerSett`) are internal; only their *types* are exported.
 
 ```ts
-import { Badger, Sett, BadgerSettings } from "@badger-eco/time";
-import type { BadgerInstance, BadgerSettInstance } from "@badger-eco/time";
+import { Badger, Sett, BadgerSettings } from "@purple-brock/time";
+import type { BadgerInstance, BadgerSettInstance } from "@purple-brock/time";
 
 Badger(date?)                      // → BadgerInstance   (shorthand for new Badger(date))
 Sett(date?, locale?, options?)     // → BadgerSettInstance (shorthand for new BadgerSett(...))
@@ -72,7 +72,7 @@ dt.hour;      // 0  (local midnight — not shifted to UTC)
 dt.dayOfWeek; // 5  (Friday, correct local day of week)
 ```
 
-> `fromLocal` is a static on the underlying class, reached via the named import: `import { Badger } from "@badger-eco/time"; Badger.fromLocal(...)`. (The default factory import and the class share the name `Badger`.)
+> `fromLocal` is a static on the underlying class, reached via the named import: `import { Badger } from "@purple-brock/time"; Badger.fromLocal(...)`. (The default factory import and the class share the name `Badger`.)
 
 ### `Badger.range(start, end, unit)` — date range generator (static)
 
@@ -256,4 +256,4 @@ npm publish         # runs build first via prepublishOnly
 
 Published package contains only `dist/` — obfuscated JS + `.d.ts` declarations; source
 `.ts` files are excluded via `.npmignore`. `publishConfig.access` is `public` (required
-for a scoped `@badger-eco/*` package). Not yet published.
+for a scoped `@purple-brock/*` package). Not yet published.
