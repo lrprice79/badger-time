@@ -250,10 +250,20 @@ Sett(Badger(openingHour).toDate(), new Intl.Locale("sv-SE")).formatTimeOnly();
 ## Build & publish
 
 ```bash
-npm run build       # type-check → bundle (rollup) → obfuscate → strip .d.ts comments
-npm publish         # runs build first via prepublishOnly
+npm run build         # type-check → bundle (rollup) → strip .d.ts comments  (un-obfuscated, RN/Hermes-safe)
+npm run build:publish # build + obfuscate  (opt-in; see Hermes warning below)
+npm publish           # runs `npm run build` via prepublishOnly (un-obfuscated)
 ```
 
-Published package contains only `dist/` — obfuscated JS + `.d.ts` declarations; source
-`.ts` files are excluded via `.npmignore`. `publishConfig.access` is `public` (required
-for a scoped `@purple-brock/*` package). Not yet published.
+`npm run build` is **un-obfuscated by default** so the dist runs in React Native /
+Hermes (the obfuscator's `selfDefending` + string-array transforms crash Hermes —
+they produce a silent blank screen). Obfuscation is opt-in via `build:publish`.
+
+⚠️ **Publish blocker:** `build:publish` (and the obfuscation in `scripts/obfuscate.mjs`)
+is NOT yet Hermes-safe. Before shipping an obfuscated build, set `selfDefending: false`,
+disable string-array transforms, and **runtime-test on Hermes** — bundling success does
+not prove it runs. Until then, publishing ships the working un-obfuscated build.
+
+Published package contains only `dist/` — JS + `.d.ts` declarations; source `.ts` files
+are excluded via `.npmignore`. `publishConfig.access` is `public` (required for a scoped
+`@purple-brock/*` package). Not yet published.
