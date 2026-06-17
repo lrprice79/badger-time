@@ -852,7 +852,7 @@ Sett(serverDate.toDate()).formatForBackend()
 
 ## Quality
 
-- **715 tests** — every public method, every unit, edge cases including clock change transitions, year boundaries, ISO week rollovers, and locale-specific weekend/week-start logic
+- **707 tests** (8 skipped on Node < 24, where `formatDuration`/`formatCountdown` are unavailable) — every public method, every unit, edge cases including clock change transitions, year boundaries, ISO week rollovers, and locale-specific weekend/week-start logic
 - **100% coverage** — statements, branches, functions, and lines
 - **Three time zone suites** — tests run under Europe/Berlin, America/New_York, and UTC to verify calculations in UTC+ and UTC− zones. New York covers spring-forward (March) and fall-back (November). Kolkata (UTC+5:30, no clock changes) covers the half-hour offset across all months and month-ends
 - **Structured audit** — every function was audited for bad inputs, missing inputs, and unexpected values. All findings fixed
