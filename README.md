@@ -60,7 +60,7 @@ yarn add @purple-brock/time
 | Countdown that returns `null` for past dates | ✗ | ✗ | ✗ | ✅ |
 | Duration formatting in the user's language | ✗ | ✗ | ✗ | ✅ |
 | Reactive global locale (one call updates the whole app) | ✗ | ✗ | ✗ | ✅ |
-| Bundle size (compressed) | ~72 KB | ~14 KB | ~23 KB | **~10 KB** |
+| Bundle size (minified + gzipped) | ~72 KB | ~14 KB | ~23 KB | **~5 KB** |
 
 ---
 
@@ -282,6 +282,40 @@ Badger("2026-06-12").addBusinessDays(1) // Sun Jun 14
 ```
 
 No other date library does this natively. Other libraries just don't give a badger.
+
+#### Public holidays (optional)
+
+Weekends are derived automatically; **public holidays are not** — no locale or
+region string can tell you that Dec 25 is a UK bank holiday but not a Saudi one,
+and badger-time deliberately ships **no holiday data** (that would be a country-
+by-country calendar to maintain forever). Instead every business-day method takes
+an optional set of holiday dates that *you* supply — typically resolved from a
+source like [`date-holidays`](https://www.npmjs.com/package/date-holidays), keyed
+off the user's region. Holidays are then skipped exactly like weekends:
+
+```ts
+const holidays = ["2026-12-25", "2026-12-28"]; // your dates, e.g. from date-holidays
+
+Badger("2026-12-25").isBusinessDay(new Intl.Locale("en-GB"), holidays);            // false
+Badger("2026-12-24").addBusinessDays(1, new Intl.Locale("en-GB"), holidays);       // Dec 29
+Badger("2026-12-29").subtractBusinessDays(1, new Intl.Locale("en-GB"), holidays);  // Dec 24
+```
+
+Rules that keep this safe:
+
+- **Strict ISO only.** Each entry must be a `YYYY-MM-DD` string. A typo, a
+  datetime, or a localized format (`25/12/2026`, `12/25/2026`) throws a
+  `RangeError` at the boundary rather than silently never matching — and so do
+  impossible dates (`2026-13-25`, `2026-02-30`). Convert any localized user input
+  to ISO *before* passing it in; the library never guesses `DD/MM` vs `MM/DD`.
+- **Accepts an array or a `Set`** (anything `Iterable<string>`). Omitted or empty
+  means "weekends only" — fully backward compatible.
+- **Local-date keyed.** A holiday matches the date's *local* calendar day,
+  consistent with the locale weekend evaluation (so it's correct near midnight in
+  any timezone, not just UTC).
+- **Never hangs.** A pathological set that blocks every reachable day makes
+  `addBusinessDays`/`subtractBusinessDays` throw a `RangeError` instead of looping
+  forever.
 
 ---
 
@@ -852,7 +886,7 @@ Sett(serverDate.toDate()).formatForBackend()
 
 ## Quality
 
-- **707 tests** (8 skipped on Node < 24, where `formatDuration`/`formatCountdown` are unavailable) — every public method, every unit, edge cases including clock change transitions, year boundaries, ISO week rollovers, and locale-specific weekend/week-start logic
+- **743 tests** (8 skipped on Node < 24, where `formatDuration`/`formatCountdown` are unavailable) — every public method, every unit, edge cases including clock change transitions, year boundaries, ISO week rollovers, and locale-specific weekend/week-start logic
 - **100% coverage** — statements, branches, functions, and lines
 - **Three time zone suites** — tests run under Europe/Berlin, America/New_York, and UTC to verify calculations in UTC+ and UTC− zones. New York covers spring-forward (March) and fall-back (November). Kolkata (UTC+5:30, no clock changes) covers the half-hour offset across all months and month-ends
 - **Structured audit** — every function was audited for bad inputs, missing inputs, and unexpected values. All findings fixed

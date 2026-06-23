@@ -406,3 +406,19 @@ describe("BadgerSett.startOfWeek — local time in CEST (en-GB, Mon start)", () 
         expect(result.getHours()).toBe(0);
     });
 });
+
+// ─── Holiday key uses the LOCAL calendar date — CET/CEST ───────────────────────
+// Local midnight in CET is the PREVIOUS day in UTC. The holiday key must be the
+// local date (matching the local weekend evaluation), not the UTC slice.
+
+describe("business-day holidays — local date keying (CET)", () => {
+    it("a local-midnight holiday matches its LOCAL date, not the UTC-shifted one", () => {
+        // Fri Dec 25 2026 00:00 CET == Thu Dec 24 2026 23:00 UTC.
+        // toISOString().slice(0,10) would give '2026-12-24' (wrong); the local
+        // date is '2026-12-25' — that is the key that must match.
+        const xmas = Badger.fromLocal("2026-12-25", "00:00");
+        expect(xmas.isBusinessDay(new Intl.Locale("en-GB"), ["2026-12-25"])).toBe(false);
+        // and the UTC-shifted date must NOT be treated as the holiday
+        expect(xmas.isBusinessDay(new Intl.Locale("en-GB"), ["2026-12-24"])).toBe(true);
+    });
+});

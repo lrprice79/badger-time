@@ -128,12 +128,21 @@ dt.isWeekday()
 ### Business days (locale-aware)
 
 ```ts
-dt.isBusinessDay(locale?)             // not a weekend for that locale
-dt.addBusinessDays(n, locale?)        // n must be a non-negative integer
-dt.subtractBusinessDays(n, locale?)   // n must be a non-negative integer
+dt.isBusinessDay(locale?, holidays?)            // not a weekend (or holiday) for that locale
+dt.addBusinessDays(n, locale?, holidays?)       // n must be a non-negative integer
+dt.subtractBusinessDays(n, locale?, holidays?)  // n must be a non-negative integer
 ```
 
 `locale` defaults to `BadgerSettings.defaultLocale`. Weekend days are derived per-locale (e.g. Fri/Sat in Saudi Arabia), so business-day maths is correct by country.
+
+`holidays` is an **optional** `Iterable<string>` of strict ISO `YYYY-MM-DD` dates the
+caller supplies (badger-time ships no holiday data — bring your own, e.g. from
+`date-holidays` keyed off the user's region). They're skipped like weekends. Rules:
+- Strict ISO only — typos, datetimes, localized formats (`25/12/2026`) and impossible
+  dates (`2026-13-25`, `2026-02-30`) throw a `RangeError` instead of silently missing.
+- Array or `Set`; omitted/empty = weekends only (backward compatible).
+- Matched against the **local** calendar date (consistent with the local weekend check).
+- A set that blocks every reachable day makes the add/subtract walkers throw, never hang.
 
 ### Diff
 

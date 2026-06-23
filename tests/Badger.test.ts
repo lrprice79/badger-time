@@ -1704,6 +1704,169 @@ describe("business days — BadgerSettings.defaultLocale fallback", () => {
     });
 });
 
+// ─── Business days — optional public-holiday set ──────────────────────────────
+// June 2026: Mon=8, Tue=9, Wed=10, Thu=11, Fri=12, Sat=13, Sun=14, Mon=15, Tue=16
+// badger-time ships NO holiday data — the caller injects a set of 'YYYY-MM-DD'
+// strings. Holidays are skipped exactly like weekends, by the SAME check.
+// The holiday key is the LOCAL calendar date (consistent with the local weekend
+// evaluation), validated to strict ISO 'YYYY-MM-DD' at the boundary.
+
+// Helper: every ISO date from `start` for `count` consecutive days (for the guard test).
+const isoRun = (start: string, count: number): string[] => {
+    const out: string[] = [];
+    let d = new Badger(start);
+    for (let i = 0; i < count; i++) {
+        out.push(d.toISOString().slice(0, 10));
+        d = d.add(1, "day");
+    }
+    return out;
+};
+
+describe("isBusinessDay — with holidays", () => {
+    it("a weekday in the holiday set is NOT a business day", () => {
+        expect(new Badger("2026-06-10T12:00:00Z").isBusinessDay(undefined, ["2026-06-10"])).toBe(false);
+    });
+
+    it("a weekday NOT in the holiday set is still a business day", () => {
+        expect(new Badger("2026-06-11T12:00:00Z").isBusinessDay(undefined, ["2026-06-10"])).toBe(true);
+    });
+
+    it("omitting the holiday arg behaves exactly as weekends-only (Wednesday is a business day)", () => {
+        expect(new Badger("2026-06-10T12:00:00Z").isBusinessDay()).toBe(true);
+    });
+
+    it("an empty holiday array is the same as no holidays", () => {
+        expect(new Badger("2026-06-10T12:00:00Z").isBusinessDay(undefined, [])).toBe(true);
+    });
+
+    it("an empty holiday Set is the same as no holidays", () => {
+        expect(new Badger("2026-06-10T12:00:00Z").isBusinessDay(undefined, new Set())).toBe(true);
+    });
+
+    it("accepts a Set as well as an array", () => {
+        expect(new Badger("2026-06-10T12:00:00Z").isBusinessDay(undefined, new Set(["2026-06-10"]))).toBe(false);
+    });
+
+    it("a holiday that falls on a weekend stays non-business (no error, just false)", () => {
+        expect(new Badger("2026-06-13T12:00:00Z").isBusinessDay(undefined, ["2026-06-13"])).toBe(false);
+    });
+
+    it("duplicate dates in the holiday array are harmless", () => {
+        expect(new Badger("2026-06-10T12:00:00Z").isBusinessDay(undefined, ["2026-06-10", "2026-06-10"])).toBe(false);
+    });
+
+    it("combines locale weekend with holidays — ar-SA Thursday holiday is non-business", () => {
+        // Thu Jun 11 is a business day in ar-SA (weekend is Fri+Sat); mark it a holiday → false
+        expect(new Badger("2026-06-11T12:00:00Z").isBusinessDay(new Intl.Locale("ar-SA"), ["2026-06-11"])).toBe(false);
+    });
+
+    it("ar-SA Sunday (a workday) with an unrelated holiday is still a business day", () => {
+        expect(new Badger("2026-06-14T12:00:00Z").isBusinessDay(new Intl.Locale("ar-SA"), ["2026-06-11"])).toBe(true);
+    });
+
+    it("an invalid date is never a business day, even with holidays", () => {
+        expect(new Badger("not-a-date").isBusinessDay(undefined, ["2026-06-10"])).toBe(false);
+    });
+
+    it.each([
+        ["2026-13-25"],   // month out of range
+        ["2026-12-32"],   // day out of range — still must be rejected structurally
+        ["25/12/2026"],   // national DD/MM/YYYY format
+        ["12/25/2026"],   // national MM/DD/YYYY format
+        ["2026-1-5"],     // unpadded
+        ["2026-12-5"],    // unpadded day
+        [" 2026-12-25"],  // leading space
+        ["2026-12-25 "],  // trailing space
+        ["2026-12-25T00:00:00"], // datetime, not date-only
+        [""],             // empty
+        ["garbage"],
+    ])("throws RangeError on malformed holiday string %j", (bad) => {
+        expect(() => new Badger("2026-06-10T12:00:00Z").isBusinessDay(undefined, [bad])).toThrow(RangeError);
+    });
+});
+
+describe("addBusinessDays — with holidays", () => {
+    it("skips a mid-week holiday in the path", () => {
+        // From Mon Jun 8, +3 business days, with Wed Jun 10 a holiday:
+        // Tue9 (1), skip Wed10, Thu11 (2), Fri12 (3) → Jun 12
+        expect(new Badger("2026-06-08T12:00:00Z").addBusinessDays(3, undefined, ["2026-06-10"]).toISOString())
+            .toBe("2026-06-12T12:00:00.000Z");
+    });
+
+    it("a holiday landing on a weekend does NOT double-skip", () => {
+        // From Thu Jun 11, +2 with Sat Jun 13 (already a weekend) as a holiday → still Mon 15
+        expect(new Badger("2026-06-11T12:00:00Z").addBusinessDays(2, undefined, ["2026-06-13"]).toISOString())
+            .toBe("2026-06-15T12:00:00.000Z");
+    });
+
+    it("adding 0 business days returns the same day even if today is a holiday", () => {
+        expect(new Badger("2026-06-10T12:00:00Z").addBusinessDays(0, undefined, ["2026-06-10"]).toISOString())
+            .toBe("2026-06-10T12:00:00.000Z");
+    });
+
+    it("skips a holiday cluster adjacent to the weekend", () => {
+        // From Thu Jun 11, +1 with Fri Jun 12 AND Mon Jun 15 holidays:
+        // skip Fri12 (holiday), skip Sat13/Sun14 (weekend), skip Mon15 (holiday) → Tue 16
+        expect(new Badger("2026-06-11T12:00:00Z").addBusinessDays(1, undefined, ["2026-06-12", "2026-06-15"]).toISOString())
+            .toBe("2026-06-16T12:00:00.000Z");
+    });
+
+    it("the start day being a holiday does not affect the count (start is never tested)", () => {
+        // From Wed Jun 10 (a holiday), +1 → Thu Jun 11
+        expect(new Badger("2026-06-10T12:00:00Z").addBusinessDays(1, undefined, ["2026-06-10"]).toISOString())
+            .toBe("2026-06-11T12:00:00.000Z");
+    });
+
+    it("an empty holiday set matches the weekend-only result", () => {
+        expect(new Badger("2026-06-08T12:00:00Z").addBusinessDays(3, undefined, []).toISOString())
+            .toBe("2026-06-11T12:00:00.000Z");
+    });
+
+    it("accepts a Set", () => {
+        expect(new Badger("2026-06-08T12:00:00Z").addBusinessDays(3, undefined, new Set(["2026-06-10"])).toISOString())
+            .toBe("2026-06-12T12:00:00.000Z");
+    });
+
+    it("throws RangeError on a malformed holiday string", () => {
+        expect(() => new Badger("2026-06-08T12:00:00Z").addBusinessDays(1, undefined, ["25/12/2026"])).toThrow(RangeError);
+    });
+
+    it("throws RangeError if the holiday set blocks every reachable day (guard against infinite loop)", () => {
+        // Every day for ~10 years is a holiday → can never satisfy +1 → must throw, not hang
+        const everyDay = isoRun("2026-06-08", 3650);
+        expect(() => new Badger("2026-06-08T12:00:00Z").addBusinessDays(1, undefined, everyDay)).toThrow(RangeError);
+    });
+});
+
+describe("subtractBusinessDays — with holidays", () => {
+    it("skips a mid-week holiday going backwards", () => {
+        // From Fri Jun 12, -3 with Wed Jun 10 a holiday:
+        // Thu11 (1), skip Wed10, Tue9 (2), Mon8 (3) → Jun 8
+        expect(new Badger("2026-06-12T12:00:00Z").subtractBusinessDays(3, undefined, ["2026-06-10"]).toISOString())
+            .toBe("2026-06-08T12:00:00.000Z");
+    });
+
+    it("a holiday on a weekend does NOT double-skip going backwards", () => {
+        // From Mon Jun 15, -1 with Sun Jun 14 (weekend) a holiday → Fri 12
+        expect(new Badger("2026-06-15T12:00:00Z").subtractBusinessDays(1, undefined, ["2026-06-14"]).toISOString())
+            .toBe("2026-06-12T12:00:00.000Z");
+    });
+
+    it("subtracting 0 returns the same day even if today is a holiday", () => {
+        expect(new Badger("2026-06-10T12:00:00Z").subtractBusinessDays(0, undefined, ["2026-06-10"]).toISOString())
+            .toBe("2026-06-10T12:00:00.000Z");
+    });
+
+    it("throws RangeError on a malformed holiday string", () => {
+        expect(() => new Badger("2026-06-15T12:00:00Z").subtractBusinessDays(1, undefined, ["2026-1-5"])).toThrow(RangeError);
+    });
+
+    it("throws RangeError if the holiday set blocks every reachable day", () => {
+        const everyDay = isoRun("2016-06-15", 3650); // 10 years of holidays going back
+        expect(() => new Badger("2026-06-15T12:00:00Z").subtractBusinessDays(1, undefined, everyDay)).toThrow(RangeError);
+    });
+});
+
 // ─── Audit fixes ──────────────────────────────────────────────────────────────
 
 describe("Badger.min / Badger.max — empty args", () => {

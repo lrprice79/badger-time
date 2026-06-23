@@ -1,5 +1,27 @@
 import { BadgerSettings } from "./BadgerSettings";
 
+/** Strict ISO date-only matcher for holiday keys — rejects national formats and datetimes. */
+const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Shared empty holiday set — the "weekends only" default, never mutated. */
+const EMPTY_HOLIDAYS: ReadonlySet<string> = new Set<string>();
+
+/**
+ * Upper bound on calendar-day steps taken per requested business day before the
+ * business-day walkers give up. Real holiday calendars never block more than a
+ * few consecutive days; a value this large only ever trips on a pathological set
+ * (e.g. every day marked a holiday), turning a would-be infinite loop into a throw.
+ */
+const MAX_STEPS_PER_BUSINESS_DAY = 1000;
+
+/** Local-component `YYYY-MM-DD` key for a raw Date (matches Badger#localDateKey). */
+function localKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = d.getMonth() + 1;
+  const day = d.getDate();
+  return `${y}-${String(m).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 type UnitOfTime =
   | "year"
   | "quarter"
@@ -896,59 +918,162 @@ export class Badger {
   }
 
   /**
-   * Returns `true` if the date is a business day.
+   * Build a validated lookup Set of public-holiday dates. badger-time ships NO
+   * holiday data — the caller injects the dates they care about (typically from
+   * a source such as `date-holidays`, keyed off their region). Every entry is
+   * validated by {@link assertISODate}; an omitted set returns the shared empty
+   * set ("weekends only"), and a `Set` argument is validated and returned as-is
+   * (no copy). Throws if any entry is not a real ISO `YYYY-MM-DD` date.
+   */
+  private static buildHolidaySet(holidays?: Iterable<string>): ReadonlySet<string> {
+    if (!holidays) return EMPTY_HOLIDAYS;
+    if (holidays instanceof Set) {
+      for (const h of holidays) Badger.assertISODate(h);
+      return holidays;
+    }
+    const set = new Set<string>();
+    for (const h of holidays) {
+      Badger.assertISODate(h);
+      set.add(h);
+    }
+    return set;
+  }
+
+  /**
+   * Assert that `value` is a strict ISO `YYYY-MM-DD` string AND a real calendar
+   * date. Rejects national formats (`25/12/2026`), datetimes, unpadded/whitespace
+   * variants, and impossible dates (`2026-13-25`, `2026-02-30`) — so a bad holiday
+   * fails loudly here instead of silently never matching a lookup key.
+   * @throws {RangeError} If the value is not a real ISO `YYYY-MM-DD` date.
+   */
+  private static assertISODate(value: string): void {
+    if (typeof value !== "string" || !ISO_DATE_ONLY.test(value)) {
+      throw new RangeError(
+        `holiday must be an ISO 'YYYY-MM-DD' date string, got ${JSON.stringify(value)}`,
+      );
+    }
+    // Shape is valid — now reject impossible calendar dates (month 13, day 32,
+    // Feb 30, etc.) so they fail loudly instead of silently never matching a key.
+    const year = Number(value.slice(0, 4));
+    const month = Number(value.slice(5, 7));
+    const day = Number(value.slice(8, 10));
+    const isLeap = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+    const daysInMonth = [31, isLeap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    if (month < 1 || month > 12 || day < 1 || day > daysInMonth[month - 1]) {
+      throw new RangeError(`holiday is not a real calendar date: ${JSON.stringify(value)}`);
+    }
+  }
+
+  /**
+   * The LOCAL calendar date as `YYYY-MM-DD`. This is the holiday-lookup key —
+   * built from local components so it matches the local weekend evaluation
+   * (using `toISOString().slice(0,10)` would key off UTC and mis-match for dates
+   * near midnight in non-UTC zones).
+   */
+  private localDateKey(): string {
+    const y = this.currentDate.getFullYear();
+    const m = this.currentDate.getMonth() + 1;
+    const d = this.currentDate.getDate();
+    return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  }
+
+  /**
+   * Returns `true` if the date is a business day — i.e. neither a weekend nor a
+   * supplied public holiday. Invalid dates return `false`.
+   *
    * Resolution order for the weekend definition: explicit `locale` arg →
    * `BadgerSettings.defaultLocale` → Saturday+Sunday.
+   *
+   * @param locale - Weekend definition source. Omit to use the global default.
+   * @param holidays - Optional public holidays to also treat as non-business
+   *   days. badger-time ships no holiday data — pass your own (e.g. from
+   *   `date-holidays`, keyed off the user's region). Each entry must be a strict
+   *   ISO `YYYY-MM-DD` string; a malformed, localized (`25/12/2026`), or
+   *   impossible (`2026-02-30`) value throws a `RangeError` rather than silently
+   *   never matching. Accepts an array or a `Set`; omitted/empty = weekends only.
+   *   Matched against the date's LOCAL calendar day, consistent with the weekend
+   *   evaluation.
+   * @throws {RangeError} If any holiday string is not a real ISO `YYYY-MM-DD` date.
    */
-  isBusinessDay(locale?: Intl.Locale): boolean {
+  isBusinessDay(locale?: Intl.Locale, holidays?: Iterable<string>): boolean {
+    const holidaySet = Badger.buildHolidaySet(holidays); // validate first, even for invalid dates
     if (!this.isValid()) return false;
     const weekend = this.getWeekend(locale);
     const jsDay = this.currentDate.getDay();    // local — consistent with .dayOfWeek getter
     const isoDay = jsDay === 0 ? 7 : jsDay;
-    return !weekend.includes(isoDay);
+    if (weekend.includes(isoDay)) return false;
+    return !holidaySet.has(this.localDateKey());
   }
 
   /**
-   * Returns a new `Badger` that is `n` business days after this date,
-   * skipping weekend days as defined by the given locale.
+   * Returns a new `Badger` that is `n` business days after this date, skipping
+   * both weekends (per the locale) and any supplied public holidays. The start
+   * day itself is never tested — only the days stepped onto — so `n = 0` returns
+   * an unchanged clone even if today is a weekend or holiday.
    *
    * Day-of-week is evaluated in local time (consistent with `.dayOfWeek` and other
    * getters). The date is stepped with `setUTCDate` to avoid DST edge-cases where
    * a local "add one day" can land on the wrong calendar date.
+   *
+   * @param n - Number of business days to advance. Must be a non-negative integer.
+   * @param locale - Weekend definition source. Omit to use the global default.
+   * @param holidays - Optional public holidays to skip, same contract as
+   *   {@link isBusinessDay}: strict ISO `YYYY-MM-DD` strings (array or `Set`),
+   *   validated, local-date keyed, omitted/empty = weekends only.
+   * @throws {RangeError} If `n` is not a non-negative integer, if any holiday
+   *   string is invalid, or if the holiday set blocks every reachable day (the
+   *   walk is bounded, so a pathological set throws instead of looping forever).
    */
-  addBusinessDays(n: number, locale?: Intl.Locale): Badger {
+  addBusinessDays(n: number, locale?: Intl.Locale, holidays?: Iterable<string>): Badger {
     if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) throw new RangeError(`addBusinessDays: n must be a non-negative integer, got ${n}`);
+    const holidaySet = Badger.buildHolidaySet(holidays);
     if (!this.isValid()) return this.clone();
     const weekend = this.getWeekend(locale);
     let result = new Date(this.currentDate);
     let remaining = n;
+    let guard = (n + 1) * MAX_STEPS_PER_BUSINESS_DAY;
     while (remaining > 0) {
+      if (guard-- <= 0) throw new RangeError(`addBusinessDays: could not find ${n} business day(s) — the holiday set appears to block every reachable day`);
       result.setUTCDate(result.getUTCDate() + 1);
       const jsDay = result.getDay();            // local day-of-week
       const isoDay = jsDay === 0 ? 7 : jsDay;
-      if (!weekend.includes(isoDay)) remaining--;
+      if (!weekend.includes(isoDay) && !holidaySet.has(localKey(result))) remaining--;
     }
     return new Badger(result);
   }
 
   /**
-   * Returns a new `Badger` that is `n` business days before this date,
-   * skipping weekend days as defined by the given locale.
+   * Returns a new `Badger` that is `n` business days before this date, skipping
+   * both weekends (per the locale) and any supplied public holidays. The start
+   * day itself is never tested — only the days stepped onto — so `n = 0` returns
+   * an unchanged clone even if today is a weekend or holiday.
    *
    * Day-of-week is evaluated in local time (consistent with `.dayOfWeek` and other
    * getters). The date is stepped with `setUTCDate` to avoid DST edge-cases.
+   *
+   * @param n - Number of business days to go back. Must be a non-negative integer.
+   * @param locale - Weekend definition source. Omit to use the global default.
+   * @param holidays - Optional public holidays to skip, same contract as
+   *   {@link isBusinessDay}: strict ISO `YYYY-MM-DD` strings (array or `Set`),
+   *   validated, local-date keyed, omitted/empty = weekends only.
+   * @throws {RangeError} If `n` is not a non-negative integer, if any holiday
+   *   string is invalid, or if the holiday set blocks every reachable day (the
+   *   walk is bounded, so a pathological set throws instead of looping forever).
    */
-  subtractBusinessDays(n: number, locale?: Intl.Locale): Badger {
+  subtractBusinessDays(n: number, locale?: Intl.Locale, holidays?: Iterable<string>): Badger {
     if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) throw new RangeError(`subtractBusinessDays: n must be a non-negative integer, got ${n}`);
+    const holidaySet = Badger.buildHolidaySet(holidays);
     if (!this.isValid()) return this.clone();
     const weekend = this.getWeekend(locale);
     let result = new Date(this.currentDate);
     let remaining = n;
+    let guard = (n + 1) * MAX_STEPS_PER_BUSINESS_DAY;
     while (remaining > 0) {
+      if (guard-- <= 0) throw new RangeError(`subtractBusinessDays: could not find ${n} business day(s) — the holiday set appears to block every reachable day`);
       result.setUTCDate(result.getUTCDate() - 1);
       const jsDay = result.getDay();            // local day-of-week
       const isoDay = jsDay === 0 ? 7 : jsDay;
-      if (!weekend.includes(isoDay)) remaining--;
+      if (!weekend.includes(isoDay) && !holidaySet.has(localKey(result))) remaining--;
     }
     return new Badger(result);
   }
