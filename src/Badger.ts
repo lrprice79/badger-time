@@ -219,10 +219,16 @@ export class Badger {
     if (!s.isValid()) throw new RangeError("Badger.range: start is not a valid date");
     if (!e.isValid()) throw new RangeError("Badger.range: end is not a valid date");
     const results: Badger[] = [];
+    // Step from the ORIGINAL start by `i` units each iteration rather than
+    // chaining off the previous result. For "month" this re-anchors to the
+    // start's day-of-month (Jan 31 → Feb 28 → Mar 31, not the drift to Mar 28
+    // that chaining off the clamped Feb 28 would produce). For "day"/"week",
+    // which never clamp, origin-stepping is identical to chaining.
+    let i = 0;
     let current = s;
     while (current.isBefore(e)) {
       results.push(current);
-      current = normalise(current.add(1, unit));
+      current = normalise(s.add(++i, unit));
     }
     return results;
   }
@@ -512,6 +518,7 @@ export class Badger {
     }
     if (unit === undefined) throw new TypeError("add: unit is required when amount is a number");
     if (!Number.isFinite(amount)) throw new RangeError(`add: amount must be a finite number, got ${amount}`);
+    if (!Number.isInteger(amount)) throw new RangeError(`add: amount must be a whole number, got ${amount} — fractional amounts would be silently truncated`);
     return this._addUnit(amount, unit);
   }
 
@@ -576,6 +583,7 @@ export class Badger {
    */
   set(unit: Exclude<UnitOfTime, "week" | "quarter">, value: number): Badger {
     if (!Number.isFinite(value)) throw new RangeError(`set(${unit}): value must be a finite number, got ${value}`);
+    if (!Number.isInteger(value)) throw new RangeError(`set(${unit}): value must be a whole number, got ${value} — fractional values would be silently truncated`);
     if (unit === "month" && (value < 1 || value > 12)) throw new RangeError(`month must be 1–12, got ${value}`);
     if (unit === "day" && (value < 1 || value > 31)) throw new RangeError(`day must be 1–31, got ${value}`);
     if (unit === "hour" && (value < 0 || value > 23)) throw new RangeError(`hour must be 0–23, got ${value}`);
@@ -636,6 +644,7 @@ export class Badger {
     }
     if (unit === undefined) throw new TypeError("subtract: unit is required when amount is a number");
     if (!Number.isFinite(amount)) throw new RangeError(`subtract: amount must be a finite number, got ${amount}`);
+    if (!Number.isInteger(amount)) throw new RangeError(`subtract: amount must be a whole number, got ${amount} — fractional amounts would be silently truncated`);
     return this.add(-amount, unit);
   }
 

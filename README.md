@@ -195,6 +195,8 @@ Badger.range("2026-01-01", "2027-01-01", "month")
 Badger.range(new Date("2026-06-01"), new Date("2026-06-08"), "day")
 ```
 
+> Monthly ranges re-anchor to the **start's day-of-month**, clamping per month rather than drifting. A range from January 31 yields Jan 31, Feb 28, Mar 31, Apr 30, May 31 — not a steady slide down to the 28th.
+
 ---
 
 ### Reading parts of a date
@@ -235,6 +237,8 @@ Singular and plural both work: `"day"` and `"days"`, `"month"` and `"months"`, e
 
 > Adding months clamps to the last valid day of the target month — January 31 + 1 month becomes February 28 or 29, not March 3.
 
+> Amounts must be **whole numbers**. A fractional amount (e.g. `add(1.5, "day")`) throws a `RangeError` rather than silently truncating to a whole unit — use a finer unit instead (`add(36, "hour")`).
+
 ---
 
 ### Changing one field
@@ -248,7 +252,7 @@ dt.set("hour", 9)
 Badger("2026-01-31").set("month", 2)  // → February 28
 ```
 
-Throws an error for impossible values (e.g. month 0, hour 25) or `NaN`.
+Throws an error for impossible values (e.g. month 0, hour 25), fractional values (e.g. `set("hour", 1.5)`), or `NaN`.
 
 ---
 
@@ -886,7 +890,7 @@ Sett(serverDate.toDate()).formatForBackend()
 
 ## Quality
 
-- **743 tests** (8 skipped on Node < 24, where `formatDuration`/`formatCountdown` are unavailable) — every public method, every unit, edge cases including clock change transitions, year boundaries, ISO week rollovers, and locale-specific weekend/week-start logic
+- **761 tests** (8 skipped on Node < 24, where `formatDuration`/`formatCountdown` are unavailable) — every public method, every unit, edge cases including clock change transitions, year boundaries, ISO week rollovers, and locale-specific weekend/week-start logic
 - **100% coverage** — statements, branches, functions, and lines
 - **Three time zone suites** — tests run under Europe/Berlin, America/New_York, and UTC to verify calculations in UTC+ and UTC− zones. New York covers spring-forward (March) and fall-back (November). Kolkata (UTC+5:30, no clock changes) covers the half-hour offset across all months and month-ends
 - **Structured audit** — every function was audited for bad inputs, missing inputs, and unexpected values. All findings fixed

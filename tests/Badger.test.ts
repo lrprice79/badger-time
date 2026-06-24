@@ -2465,3 +2465,122 @@ describe("Badger.min / Badger.max — invalid input guard (F4)", () => {
         expect(Badger.max(valid1, valid2).toISOString()).toBe(valid2.toISOString());
     });
 });
+
+// ─── edge-TDD: fractional amount/value guards (F6) ───────────────────────────
+// add/subtract/set previously accepted any FINITE number, then truncated the
+// fraction via Date's setX semantics — a SILENT WRONG VALUE. add(1.5,"day") gave
+// +1 day (lost 12h), add(0.5,"millisecond") was a silent no-op, set("hour",1.5)
+// set hour 1. addBusinessDays already required an integer; add/subtract/set now
+// match that contract and throw RangeError instead of silently truncating.
+
+describe("add / subtract / set — fractional amount guard (F6)", () => {
+    const dt = new Badger("2026-06-15T12:00:00Z");
+
+    it("add(1.5, 'day') throws RangeError — no silent truncation", () => {
+        expect(() => dt.add(1.5, "day")).toThrow(RangeError);
+    });
+
+    it("add(0.5, 'millisecond') throws RangeError — was a silent no-op", () => {
+        expect(() => dt.add(0.5, "millisecond")).toThrow(RangeError);
+    });
+
+    it("add({ hours: 1.5 }) throws RangeError — fraction via object path", () => {
+        expect(() => dt.add({ hours: 1.5 })).toThrow(RangeError);
+    });
+
+    it("subtract(2.25, 'hour') throws RangeError", () => {
+        expect(() => dt.subtract(2.25, "hour")).toThrow(RangeError);
+    });
+
+    it("subtract({ days: 1.5 }) throws RangeError — fraction via object path", () => {
+        expect(() => dt.subtract({ days: 1.5 })).toThrow(RangeError);
+    });
+
+    it("set('hour', 1.5) throws RangeError — was set to 1", () => {
+        expect(() => dt.set("hour", 1.5)).toThrow(RangeError);
+    });
+
+    it("set('year', 2026.5) throws RangeError", () => {
+        expect(() => dt.set("year", 2026.5)).toThrow(RangeError);
+    });
+
+    it("set('millisecond', 10.9) throws RangeError", () => {
+        expect(() => dt.set("millisecond", 10.9)).toThrow(RangeError);
+    });
+
+    // Regression: whole-number amounts/values must still work, incl. negatives and 0.
+    it("add(2, 'day') still works", () => {
+        expect(dt.add(2, "day").day).toBe(17);
+    });
+
+    it("add(-3, 'day') still works", () => {
+        expect(dt.add(-3, "day").day).toBe(12);
+    });
+
+    it("set('hour', 9) still works", () => {
+        expect(dt.set("hour", 9).hour).toBe(9);
+    });
+
+    it("subtract({ days: 1, hours: 2 }) still works", () => {
+        const r = dt.subtract({ days: 1, hours: 2 });
+        expect(r.day).toBe(14);
+        expect(r.hour).toBe(10);
+    });
+});
+
+// ─── edge-TDD: characterization of two documented sharp edges ────────────────
+// These lock CURRENT behaviour so any future change is a conscious decision.
+// They are NOT bug fixes — see the notes.
+
+describe("Badger.range('month') — re-anchors to the start's day-of-month (F7)", () => {
+    it("Jan 31 monthly range re-anchors each step to day 31, clamping per month", () => {
+        // Each element is computed from the ORIGINAL start (Jan 31 + i months),
+        // not chained off the previous clamped result — so February's clamp to
+        // the 28th does not drag March/May down with it.
+        const days = Badger.range("2026-01-31", "2026-06-01", "month").map(
+            d => d.toISOString().slice(0, 10),
+        );
+        expect(days).toEqual([
+            "2026-01-31",
+            "2026-02-28", // clamped (28 days)
+            "2026-03-31", // re-anchored to 31, NOT 28
+            "2026-04-30", // clamped (30 days)
+            "2026-05-31", // re-anchored to 31
+        ]);
+    });
+
+    it("Jan 30 monthly range re-anchors to day 30, clamping only February", () => {
+        const days = Badger.range("2026-01-30", "2026-05-01", "month").map(
+            d => d.toISOString().slice(0, 10),
+        );
+        expect(days).toEqual([
+            "2026-01-30",
+            "2026-02-28", // clamped
+            "2026-03-30", // re-anchored to 30, NOT 28
+            "2026-04-30",
+        ]);
+    });
+
+    it("mid-month start is unaffected (no clamping in play)", () => {
+        const days = Badger.range("2026-01-15", "2026-04-01", "month").map(
+            d => d.toISOString().slice(0, 10),
+        );
+        expect(days).toEqual(["2026-01-15", "2026-02-15", "2026-03-15"]);
+    });
+});
+
+describe("diff — float flag is ignored for calendar units (characterization)", () => {
+    it("diff(..., 'month', true) returns the integer calendar-month delta", () => {
+        // float only affects ms-based units (ms/s/min/hour/day/week). month,
+        // quarter and year are always whole calendar deltas.
+        expect(new Badger("2026-03-15").diff(new Badger("2026-01-15"), "month", true)).toBe(2);
+    });
+
+    it("diff(..., 'year', true) returns the integer calendar-year delta", () => {
+        expect(new Badger("2027-07-01").diff(new Badger("2026-01-01"), "year", true)).toBe(1);
+    });
+
+    it("diff(..., 'quarter', true) returns the integer calendar-quarter delta", () => {
+        expect(new Badger("2026-07-01").diff(new Badger("2026-01-01"), "quarter", true)).toBe(2);
+    });
+});
