@@ -107,19 +107,27 @@ No `new` keyword is needed anywhere. Every operation returns a new value — the
 
 ### TypeScript types
 
-If you are using TypeScript, these types are available:
+If you are using TypeScript, the factory names double as the instance types — so
+`Badger` and `Sett` can be used as **both a value and a type**, with no separate
+type import:
 
 ```ts
 import { Badger, Sett } from "@purple-brock/time";
-import type { BadgerInstance, BadgerSettInstance } from "@purple-brock/time";
 
-function addBusinessDays(date: BadgerInstance, n: number): BadgerInstance {
+function addBusinessDays(date: Badger, n: number): Badger {
     return date.addBusinessDays(n);
 }
 
-function formatForDisplay(date: BadgerInstance): BadgerSettInstance {
+function formatForDisplay(date: Badger): Sett {
     return Sett(date.toDate());
 }
+```
+
+The explicit instance-type aliases `BadgerInstance` / `BadgerSettInstance` remain
+exported and are equivalent — use whichever reads better:
+
+```ts
+import type { BadgerInstance, BadgerSettInstance } from "@purple-brock/time";
 ```
 
 ---
@@ -890,7 +898,7 @@ Sett(serverDate.toDate()).formatForBackend()
 
 ## Quality
 
-- **761 tests** (8 skipped on Node < 24, where `formatDuration`/`formatCountdown` are unavailable) — every public method, every unit, edge cases including clock change transitions, year boundaries, ISO week rollovers, and locale-specific weekend/week-start logic
+- **766 tests** (8 skipped on Node < 24, where `formatDuration`/`formatCountdown` are unavailable) — every public method, every unit, edge cases including clock change transitions, year boundaries, ISO week rollovers, and locale-specific weekend/week-start logic, plus type-level tests that lock the public type surface
 - **100% coverage** — statements, branches, functions, and lines
 - **Three time zone suites** — tests run under Europe/Berlin, America/New_York, and UTC to verify calculations in UTC+ and UTC− zones. New York covers spring-forward (March) and fall-back (November). Kolkata (UTC+5:30, no clock changes) covers the half-hour offset across all months and month-ends
 - **Structured audit** — every function was audited for bad inputs, missing inputs, and unexpected values. All findings fixed

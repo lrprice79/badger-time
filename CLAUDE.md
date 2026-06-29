@@ -27,20 +27,22 @@ src/
 
 ```ts
 import { Badger, Sett, BadgerSettings } from "@purple-brock/time";
-import type { BadgerInstance, BadgerSettInstance } from "@purple-brock/time";
+// `Badger`/`Sett` double as their instance TYPES (value/type merge), so you can
+// write `const d: Badger = Badger(...)` with no separate type import. The
+// explicit `BadgerInstance`/`BadgerSettInstance` aliases remain as equivalents.
 
-Badger(date?)                      // → BadgerInstance   (shorthand for new Badger(date))
-Sett(date?, locale?, options?)     // → BadgerSettInstance (shorthand for new BadgerSett(...))
+Badger(date?)                      // → Badger (=BadgerInstance)   (shorthand for new Badger(date))
+Sett(date?, locale?, options?)     // → Sett (=BadgerSettInstance) (shorthand for new BadgerSett(...))
 BadgerSettings                     // static class — global defaults
 ```
 
 | Export | Kind | What it does |
 |---|---|---|
-| `Badger(date?)` | factory fn | Date engine: arithmetic, comparison, boundaries, business days, ranges |
-| `Sett(date?, locale?, options?)` | factory fn | Formatting: locale-aware display, relative time, countdown, backend ISO |
+| `Badger(date?)` | factory fn **+ type** | Date engine: arithmetic, comparison, boundaries, business days, ranges. The name also serves as the instance type. |
+| `Sett(date?, locale?, options?)` | factory fn **+ type** | Formatting: locale-aware display, relative time, countdown, backend ISO. The name also serves as the instance type. |
 | `BadgerSettings` | static class | Global locale + timezone defaults, locale-change subscription |
-| `BadgerInstance` | type | The value `Badger()` returns |
-| `BadgerSettInstance` | type | The value `Sett()` returns |
+| `BadgerInstance` | type | Alias for the `Badger` instance type (equivalent to using `Badger` as a type) |
+| `BadgerSettInstance` | type | Alias for the `Sett` instance type |
 
 Every mutation method returns a **new** instance — the original is never modified.
 
