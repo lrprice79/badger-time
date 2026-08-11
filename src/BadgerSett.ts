@@ -77,7 +77,9 @@ export class BadgerSett extends Intl.DateTimeFormat {
      */
     formatForBackendToStartOfDay(): string {
         this.assertDateValid("formatForBackendToStartOfDay");
-        return this.toUtcIsoAtTimeInTimezone(0, 0, 0, 0);
+        // Start of day = the FIRST UTC instant whose local calendar date matches
+        // `currentDate`'s local date in the configured timezone.
+        return new Date(this.firstInstantOfLocalDate(0)).toISOString();
     }
 
     /**
@@ -86,73 +88,48 @@ export class BadgerSett extends Intl.DateTimeFormat {
      */
     formatForBackendToEndOfDay(): string {
         this.assertDateValid("formatForBackendToEndOfDay");
-        return this.toUtcIsoAtTimeInTimezone(23, 59, 59, 999);
+        // End of day = the LAST UTC instant of the local date = one ms before the
+        // first instant of the NEXT local date.
+        return new Date(this.firstInstantOfLocalDate(1) - 1).toISOString();
+    }
+
+    /** The `YYYY-MM-DD` calendar date of an instant in the configured timezone. */
+    private zonedDateKey(instant: Date, tz: string): string {
+        const p = new Intl.DateTimeFormat("en-GB", {
+            year: "numeric", month: "2-digit", day: "2-digit", timeZone: tz,
+        }).formatToParts(instant);
+        const g = (t: string) => p.find(x => x.type === t)!.value;
+        return `${g("year")}-${g("month")}-${g("day")}`;
     }
 
     /**
-     * Computes the UTC instant for a specific time-of-day in the configured timezone
-     * on the same calendar date as `currentDate` (in that timezone).
+     * Returns the first UTC instant (ms) whose local calendar date in the
+     * configured timezone is `dayOffset` days after `currentDate`'s local date.
+     *
+     * Found by binary search on the local-date boundary rather than offset
+     * arithmetic. Local calendar date is monotonic non-decreasing in absolute
+     * time, so the search is exact and DST-proof — it handles skipped/ambiguous
+     * midnights, half-hour/45-minute offsets (Lord Howe, Chatham), and large
+     * offsets where a naive "wall time as UTC" guess lands on the wrong side of
+     * that day's transition (Sydney/Auckland on their fall-back day).
      */
-    private toUtcIsoAtTimeInTimezone(hours: number, minutes: number, seconds: number, ms: number): string {
+    private firstInstantOfLocalDate(dayOffset: number): number {
         const tz = this.resolvedOptions().timeZone;
+        // Target local date = currentDate's local date + dayOffset days.
+        const [y, m, d] = this.zonedDateKey(this.currentDate, tz).split("-").map(Number);
+        const targetMs = Date.UTC(y!, m! - 1, d! + dayOffset);
+        const target = new Date(targetMs).toISOString().slice(0, 10);
 
-        // Extract the calendar date as it appears in the configured timezone
-        const parts = new Intl.DateTimeFormat("en-GB", {
-            year: "numeric",
-            month: "2-digit",
-            day: "2-digit",
-            timeZone: tz
-        }).formatToParts(this.currentDate);
-
-        const year = parts.find(p => p.type === "year")!.value;
-        const month = parts.find(p => p.type === "month")!.value;
-        const day = parts.find(p => p.type === "day")!.value;
-
-        const h = String(hours).padStart(2, "0");
-        const m = String(minutes).padStart(2, "0");
-        const s = String(seconds).padStart(2, "0");
-        const msStr = String(ms).padStart(3, "0");
-        const localIso = `${year}-${month}-${day}T${h}:${m}:${s}.${msStr}`;
-
-        // Find the UTC instant that corresponds to this local time in the target timezone.
-        // Start with a UTC guess, then compute the offset and adjust.
-        const utcGuess = new Date(localIso + "Z");
-        const offset = this.getTimezoneOffsetMs(utcGuess, tz);
-        const adjusted = new Date(utcGuess.getTime() + offset);
-
-        // Verify: the offset may have changed (DST boundary). Re-check and adjust if needed.
-        const offset2 = this.getTimezoneOffsetMs(adjusted, tz);
-        if (offset !== offset2) {
-            // Midnight was skipped (spring-forward at 00:00 local time — e.g. Cuba, Azores).
-            // Two candidate UTC instants; the correct one is whichever is LATER:
-            //   - For UTC- zones: `adjusted` already lands on the first valid moment of the day.
-            //   - For UTC+ zones: `utcGuess + offset2` lands on the first valid moment.
-            // Math.max picks the right answer in both cases.
-            return new Date(Math.max(adjusted.getTime(), utcGuess.getTime() + offset2)).toISOString();
+        // Bracket: real UTC offsets are within ±14h, so ±30h around the naive
+        // guess is guaranteed to straddle the boundary (lo before it, hi at/after).
+        let lo = targetMs - 30 * 3600000;
+        let hi = targetMs + 30 * 3600000;
+        while (lo < hi) {
+            const mid = lo + Math.floor((hi - lo) / 2);
+            if (this.zonedDateKey(new Date(mid), tz) >= target) hi = mid;
+            else lo = mid + 1;
         }
-        return adjusted.toISOString();
-    }
-
-    /**
-     * Returns the offset in ms to convert UTC to a given timezone.
-     * Positive = timezone is behind UTC, negative = timezone is ahead of UTC.
-     */
-    private getTimezoneOffsetMs(date: Date, tz: string): number {
-        const toMs = (timeZone: string) => {
-            const p = new Intl.DateTimeFormat("en-GB", {
-                year: "numeric",
-                month: "2-digit",
-                day: "2-digit",
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-                hour12: false,
-                timeZone
-            }).formatToParts(date);
-            const get = (type: string) => Number(p.find(x => x.type === type)!.value);
-            return Date.UTC(get("year"), get("month") - 1, get("day"), get("hour"), get("minute"), get("second"));
-        };
-        return toMs("UTC") - toMs(tz);
+        return lo;
     }
 
     /** Formats the full date and time using the configured locale and options. */

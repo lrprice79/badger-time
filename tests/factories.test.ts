@@ -75,3 +75,36 @@ describe("Sett() factory", () => {
         expect(result).toBe("2026-06-15T00:00:00.000Z");
     });
 });
+
+// ─── class statics are reachable on the BARREL factory ────────────────────────
+// Regression: `Badger.fromLocal/range/min/max` are documented on the public
+// import. They live as statics on the class, so the factory must carry them —
+// otherwise `Badger.fromLocal(...)` is undefined at runtime for consumers.
+
+describe("Badger factory carries the class statics", () => {
+    it("exposes fromLocal, range, min, max as functions", () => {
+        expect(typeof Badger.fromLocal).toBe("function");
+        expect(typeof Badger.range).toBe("function");
+        expect(typeof Badger.min).toBe("function");
+        expect(typeof Badger.max).toBe("function");
+    });
+
+    it("Badger.fromLocal returns a working instance", () => {
+        const dt = Badger.fromLocal("2026-05-22", "00:15");
+        expect(dt.hour).toBe(0);
+        expect(dt.minute).toBe(15);
+    });
+
+    it("Badger.range returns the expected span", () => {
+        const days = Badger.range("2026-03-01", "2026-03-05", "day");
+        expect(days).toHaveLength(4);
+        expect(days.every(d => d instanceof BadgerClass)).toBe(true);
+    });
+
+    it("Badger.min / Badger.max pick the right instance", () => {
+        const a = Badger("2026-01-01T00:00:00Z");
+        const b = Badger("2026-12-31T00:00:00Z");
+        expect(Badger.min(a, b).toISOString()).toBe("2026-01-01T00:00:00.000Z");
+        expect(Badger.max(a, b).toISOString()).toBe("2026-12-31T00:00:00.000Z");
+    });
+});

@@ -60,7 +60,7 @@ yarn add @purple-brock/time
 | Countdown that returns `null` for past dates | ✗ | ✗ | ✗ | ✅ |
 | Duration formatting in the user's language | ✗ | ✗ | ✗ | ✅ |
 | Reactive global locale (one call updates the whole app) | ✗ | ✗ | ✗ | ✅ |
-| Bundle size (minified + gzipped) | ~72 KB | ~14 KB | ~23 KB | **~5 KB** |
+| Bundle size (minified + gzipped) | ~72 KB | ~14 KB | ~23 KB | **~5.1 KB** |
 
 ---
 
@@ -898,7 +898,7 @@ Sett(serverDate.toDate()).formatForBackend()
 
 ## Quality
 
-- **766 tests** (8 skipped on Node < 24, where `formatDuration`/`formatCountdown` are unavailable) — every public method, every unit, edge cases including clock change transitions, year boundaries, ISO week rollovers, and locale-specific weekend/week-start logic, plus type-level tests that lock the public type surface
+- **791 tests** (8 skipped on Node < 24, where `formatDuration`/`formatCountdown` are unavailable) — every public method, every unit, edge cases including clock change transitions, year boundaries, ISO week rollovers, and locale-specific weekend/week-start logic, plus type-level tests that lock the public type surface
 - **100% coverage** — statements, branches, functions, and lines
 - **Three time zone suites** — tests run under Europe/Berlin, America/New_York, and UTC to verify calculations in UTC+ and UTC− zones. New York covers spring-forward (March) and fall-back (November). Kolkata (UTC+5:30, no clock changes) covers the half-hour offset across all months and month-ends
 - **Structured audit** — every function was audited for bad inputs, missing inputs, and unexpected values. All findings fixed

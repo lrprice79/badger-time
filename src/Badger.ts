@@ -1021,8 +1021,9 @@ export class Badger {
    * an unchanged clone even if today is a weekend or holiday.
    *
    * Day-of-week is evaluated in local time (consistent with `.dayOfWeek` and other
-   * getters). The date is stepped with `setUTCDate` to avoid DST edge-cases where
-   * a local "add one day" can land on the wrong calendar date.
+   * getters). The date is stepped one LOCAL calendar day at a time (`setDate`),
+   * which advances the local date by exactly 1 across DST transitions — so a
+   * DST-shortened or -lengthened local day is never skipped or double-counted.
    *
    * @param n - Number of business days to advance. Must be a non-negative integer.
    * @param locale - Weekend definition source. Omit to use the global default.
@@ -1043,7 +1044,7 @@ export class Badger {
     let guard = (n + 1) * MAX_STEPS_PER_BUSINESS_DAY;
     while (remaining > 0) {
       if (guard-- <= 0) throw new RangeError(`addBusinessDays: could not find ${n} business day(s) — the holiday set appears to block every reachable day`);
-      result.setUTCDate(result.getUTCDate() + 1);
+      result.setDate(result.getDate() + 1);     // step in LOCAL days — advances the local calendar date by exactly 1 (DST-safe), matching the local getDay()/holiday check below
       const jsDay = result.getDay();            // local day-of-week
       const isoDay = jsDay === 0 ? 7 : jsDay;
       if (!weekend.includes(isoDay) && !holidaySet.has(localKey(result))) remaining--;
@@ -1058,7 +1059,9 @@ export class Badger {
    * an unchanged clone even if today is a weekend or holiday.
    *
    * Day-of-week is evaluated in local time (consistent with `.dayOfWeek` and other
-   * getters). The date is stepped with `setUTCDate` to avoid DST edge-cases.
+   * getters). The date is stepped one LOCAL calendar day at a time (`setDate`),
+   * which retreats the local date by exactly 1 across DST transitions — so a
+   * DST-shortened or -lengthened local day is never skipped or double-counted.
    *
    * @param n - Number of business days to go back. Must be a non-negative integer.
    * @param locale - Weekend definition source. Omit to use the global default.
@@ -1079,7 +1082,7 @@ export class Badger {
     let guard = (n + 1) * MAX_STEPS_PER_BUSINESS_DAY;
     while (remaining > 0) {
       if (guard-- <= 0) throw new RangeError(`subtractBusinessDays: could not find ${n} business day(s) — the holiday set appears to block every reachable day`);
-      result.setUTCDate(result.getUTCDate() - 1);
+      result.setDate(result.getDate() - 1);     // step in LOCAL days — retreats the local calendar date by exactly 1 (DST-safe), matching the local getDay()/holiday check below
       const jsDay = result.getDay();            // local day-of-week
       const isoDay = jsDay === 0 ? 7 : jsDay;
       if (!weekend.includes(isoDay) && !holidaySet.has(localKey(result))) remaining--;

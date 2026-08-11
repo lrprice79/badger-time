@@ -236,3 +236,50 @@ describe("BadgerSett — Kolkata end-of-month start/end of day", () => {
         });
     }
 });
+
+// ─── Southern-hemisphere DST: start/end of day (regression) ───────────────────
+// Regression for the day-boundary serialization. The old offset-guessing
+// algorithm returned the WRONG instant for large-offset zones on their
+// fall-back day — Sydney/Melbourne gave 01:00 instead of 00:00, and
+// Auckland/Chatham landed on the wrong DAY. The boundary is now found by binary
+// search on the local date, which is DST-proof. These assert the definitive
+// spec via a ±1ms nudge (no hard-coded UTC instants):
+//   start-of-day = first ms of the local date, end-of-day = last ms.
+describe("BadgerSett — southern-hemisphere DST day boundaries", () => {
+    const dateKey = (iso: string, tz: string) => {
+        const p = new Intl.DateTimeFormat("en-GB", { year: "numeric", month: "2-digit", day: "2-digit", timeZone: tz }).formatToParts(new Date(iso));
+        const g = (t: string) => p.find(x => x.type === t)!.value;
+        return `${g("year")}-${g("month")}-${g("day")}`;
+    };
+    // 2026: AU/NZ fall back on Apr 5, spring forward on Oct 4.
+    const cases = [
+        { tz: "Australia/Sydney",    d: "2026-04-05" },
+        { tz: "Australia/Melbourne", d: "2026-04-05" },
+        { tz: "Australia/Adelaide",  d: "2026-04-05" }, // +10:30/+9:30 half-hour
+        { tz: "Australia/Lord_Howe", d: "2026-04-05" }, // 30-minute DST amount
+        { tz: "Pacific/Auckland",    d: "2026-04-05" },
+        { tz: "Pacific/Chatham",     d: "2026-04-05" }, // +12:45/+13:45
+        { tz: "Australia/Sydney",    d: "2026-10-04" }, // spring forward
+        { tz: "Pacific/Auckland",    d: "2026-10-04" },
+    ];
+    for (const { tz, d } of cases) {
+        it(`${tz} @ ${d} — start-of-day is the first ms of the local date`, () => {
+            // Use local noon so the tz-local date is unambiguously `d`.
+            const bs = new BadgerSett(new Date(`${d}T12:00:00Z`), undefined, { timeZone: tz });
+            // Guard: noon-UTC may fall on the next local day for far-east zones —
+            // anchor on whatever local date the instance actually reports.
+            const target = dateKey(`${d}T12:00:00Z`, tz);
+            const start = bs.formatForBackendToStartOfDay();
+            expect(dateKey(start, tz)).toBe(target);
+            expect(dateKey(new Date(new Date(start).getTime() - 1).toISOString(), tz) < target).toBe(true);
+        });
+        it(`${tz} @ ${d} — end-of-day is the last ms of the local date`, () => {
+            const bs = new BadgerSett(new Date(`${d}T12:00:00Z`), undefined, { timeZone: tz });
+            const target = dateKey(`${d}T12:00:00Z`, tz);
+            const end = bs.formatForBackendToEndOfDay();
+            expect(dateKey(end, tz)).toBe(target);
+            expect(dateKey(new Date(new Date(end).getTime() + 1).toISOString(), tz) > target).toBe(true);
+            expect(new Date(end).getUTCMilliseconds()).toBe(999);
+        });
+    }
+});

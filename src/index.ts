@@ -20,9 +20,22 @@ export { BadgerSettings } from "./BadgerSettings";
 export type { Badger as BadgerInstance } from "./Badger";
 export type { BadgerSett as BadgerSettInstance } from "./BadgerSett";
 
-/** Creates a Badger date instance. Shorthand for `new Badger(date)`. */
-export const Badger = (date?: string | Date): BadgerClass =>
-    new BadgerClass(date);
+/**
+ * Creates a Badger date instance. Shorthand for `new Badger(date)`.
+ *
+ * The class statics (`fromLocal`, `range`, `min`, `max`) are attached to the
+ * factory so the documented `Badger.fromLocal(...)` / `Badger.range(...)` calls
+ * work on the public import — not just on the internal class.
+ */
+export const Badger = Object.assign(
+    (date?: string | Date): BadgerClass => new BadgerClass(date),
+    {
+        fromLocal: BadgerClass.fromLocal.bind(BadgerClass),
+        range: BadgerClass.range.bind(BadgerClass),
+        min: BadgerClass.min.bind(BadgerClass),
+        max: BadgerClass.max.bind(BadgerClass),
+    },
+);
 /** The instance type returned by `Badger(...)` (value/type declaration merge). */
 export type Badger = BadgerClass;
 

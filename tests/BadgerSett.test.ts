@@ -456,6 +456,32 @@ describe("formatRelative", () => {
         expect(bs.formatRelative()).toBe("last year");
     });
 
+    // Exact threshold boundaries — verified against an independent ladder across
+    // 4 locales × 27 offsets × both directions; these lock the transition points.
+    it("59s → seconds, 60s → minute (boundary)", () => {
+        expect(new BadgerSett(new Date("2026-06-15T11:59:01Z")).formatRelative()).toBe("59 seconds ago");
+        expect(new BadgerSett(new Date("2026-06-15T11:59:00Z")).formatRelative()).toBe("1 minute ago");
+    });
+    it("23h59m → hours, exactly 24h → day (boundary)", () => {
+        expect(new BadgerSett(new Date("2026-06-14T12:01:00Z")).formatRelative()).toBe("23 hours ago");
+        expect(new BadgerSett(new Date("2026-06-14T12:00:00Z")).formatRelative()).toBe("yesterday");
+    });
+    it("6 days → day, 7 days → week (boundary)", () => {
+        expect(new BadgerSett(new Date("2026-06-09T12:00:00Z")).formatRelative()).toBe("6 days ago");
+        expect(new BadgerSett(new Date("2026-06-08T12:00:00Z")).formatRelative()).toBe("last week");
+    });
+    it("27 days → weeks, 28-day cross-month → month (boundary)", () => {
+        expect(new BadgerSett(new Date("2026-05-19T12:00:00Z")).formatRelative()).toBe("3 weeks ago");
+        // 2026-05-18 → Jun 15 is 28 days AND crosses May→Jun → month.
+        expect(new BadgerSett(new Date("2026-05-18T12:00:00Z")).formatRelative()).toBe("last month");
+    });
+    it("calendar month/year counts (not ms-based)", () => {
+        // Jun 15 2026 → Jan 1 2027 is 7 calendar-month steps.
+        expect(new BadgerSett(new Date("2027-01-01T12:00:00Z")).formatRelative()).toBe("in 7 months");
+        // 2.2 years → 2 calendar years.
+        expect(new BadgerSett(new Date("2028-08-15T12:00:00Z")).formatRelative()).toBe("in 2 years");
+    });
+
     it("in 5 minutes (future)", () => {
         const bs = new BadgerSett(new Date("2026-06-15T12:05:00Z"));
         expect(bs.formatRelative()).toBe("in 5 minutes");

@@ -325,6 +325,36 @@ describe("isWeekend / isWeekday / isBusinessDay — local vs UTC in CEST", () =>
         expect(result.month).toBe(6);
         expect(result.dayOfWeek).toBe(5); // 5 = Friday
     });
+
+    // Regression: the walker steps one LOCAL calendar day at a time, so a
+    // DST-shortened (spring-forward) or -lengthened (fall-back) local day is
+    // never skipped or double-counted. Using ar-SA (weekend = Fri+Sat), SUNDAY
+    // is a business day — so the DST-transition Sunday actually gets counted,
+    // unlike a standard Sat/Sun weekend where a skipped Sunday would be masked.
+    // Old UTC-stepping walker landed a 24h step past the 23h spring-forward
+    // Sunday and skipped it entirely.
+    describe("business-day walker across a DST transition (non-Sunday weekend)", () => {
+        const arSA = new Intl.Locale("ar-SA"); // weekend Fri+Sat → Sunday is a business day
+        const ymd = (d: Badger) =>
+            `${d.year}-${String(d.month).padStart(2, "0")}-${String(d.day).padStart(2, "0")}`;
+
+        it("addBusinessDays(1) from Sat 23:30 counts the spring-forward Sunday, not Monday", () => {
+            // Europe/Berlin spring-forward: Sun 2026-03-29 02:00→03:00 (23h day).
+            const sat = Badger.fromLocal("2026-03-28", "23:30");
+            expect(ymd(sat.addBusinessDays(1, arSA))).toBe("2026-03-29");
+        });
+
+        it("subtractBusinessDays(1) from Mon 00:30 counts the spring-forward Sunday, not Saturday", () => {
+            const mon = Badger.fromLocal("2026-03-30", "00:30");
+            expect(ymd(mon.subtractBusinessDays(1, arSA))).toBe("2026-03-29");
+        });
+
+        it("addBusinessDays(1) from Sat 23:30 counts the fall-back Sunday, not Monday", () => {
+            // Europe/Berlin fall-back: Sun 2026-10-25 03:00→02:00 (25h day).
+            const sat = Badger.fromLocal("2026-10-24", "23:30");
+            expect(ymd(sat.addBusinessDays(1, arSA))).toBe("2026-10-25");
+        });
+    });
 });
 
 // ─── getWeekNumber around spring-forward ─────────────────────────────────────
