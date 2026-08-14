@@ -139,14 +139,14 @@ import type { BadgerInstance, BadgerSettInstance } from "@purple-brock/time";
 ```ts
 Badger()                              // right now
 Badger("2026-03-15T10:30:00")        // a specific date and time (treated as UTC)
-Badger("2026-03-15")                 // a specific date (midnight UTC)
+Badger("2026-03-15")                 // a specific date (local midnight)
 Badger("2026-03-15T10:30:00Z")       // explicit time zone offset — used as-is
 Badger("2026-03-15T10:30:00+02:00")  // with a +2 hour offset — used as-is
 Badger(someDate)                     // copy of a JavaScript Date object
 ```
 
 **How strings are interpreted:**
-- A date-only string like `"2026-03-15"` is treated as midnight UTC
+- A date-only string like `"2026-03-15"` is anchored to **local midnight**, so its calendar day is correct in every time zone — reading `.day`, adding months, or building a range never drifts to the previous day for users west of UTC
 - A string that already includes a time zone (ends in `Z` or `+02:00`) is used exactly as written
 - Any other date-time string (no time zone) is treated as UTC
 
@@ -452,7 +452,8 @@ Day and week differences account for daylight saving time correctly — they cou
 ### Other utilities
 
 ```ts
-dt.toISOString()              // "2026-03-15T10:30:00.000Z"  — throws if invalid
+dt.toISOString()              // "2026-03-15T10:30:00.000Z"  — UTC instant; throws if invalid
+dt.toLocalISODate()           // "2026-03-15"  — LOCAL calendar date; use this, never toISOString().slice(0,10)
 dt.toDate()                   // a plain JavaScript Date (a copy — changes won't affect the Badger)
 dt.toUnixTimestamp()          // seconds since 1 Jan 1970 (floored)
 dt.toMillisecondTimestamp()   // milliseconds since 1 Jan 1970
@@ -478,7 +479,7 @@ Always call `isValid()` before using a `Badger` that was created from user input
 | Countdown | `countdown()` | `null` |
 | Arithmetic | `add`, `subtract`, `startOf`, `endOf`, `clone` | An invalid Badger (further chaining stays invalid) |
 | Business day iteration | `addBusinessDays`, `subtractBusinessDays` | Invalid clone — no looping |
-| `toISOString()` | — | Throws an error (there is no meaningful string to produce) |
+| `toISOString()` / `toLocalISODate()` | — | Throws an error (there is no meaningful string to produce) |
 | `Sett` formatters | `formatDate`, `formatTimeOnly`, `getDayName`… | Throw an error |
 
 ```ts
@@ -529,9 +530,9 @@ Sett(someDate, new Intl.Locale("sv-SE"), {          // override locale + formatt
 ```ts
 const s = Sett(new Date("2026-03-15T14:30:45Z"));
 
-s.formatDate()           // "15/03/2026, 15:30:45"  (en-GB format, 24-hour)
+s.formatDate()           // "15/03/2026, 14:30:45"  (en-GB format, 24-hour)
 s.formatDateOnly()       // "15/03/2026"
-s.formatTimeOnly()       // "15:30:45"  (24-hour for en-GB, chosen automatically)
+s.formatTimeOnly()       // "14:30:45"  (24-hour for en-GB, chosen automatically)
 s.getDayName()           // "Sunday"   (pass "short" → "Sun", "narrow" → "S")
 s.getMonthName()         // "March"    (pass "short" → "Mar", "narrow" → "M")
 s.getDaysOfTheWeek()     // ["Monday", "Tuesday", …]  — starts on the locale's first day
@@ -900,7 +901,7 @@ Sett(serverDate.toDate()).formatForBackend()
 
 - **791 tests** (8 skipped on Node < 24, where `formatDuration`/`formatCountdown` are unavailable) — every public method, every unit, edge cases including clock change transitions, year boundaries, ISO week rollovers, and locale-specific weekend/week-start logic, plus type-level tests that lock the public type surface
 - **100% coverage** — statements, branches, functions, and lines
-- **Three time zone suites** — tests run under Europe/Berlin, America/New_York, and UTC to verify calculations in UTC+ and UTC− zones. New York covers spring-forward (March) and fall-back (November). Kolkata (UTC+5:30, no clock changes) covers the half-hour offset across all months and month-ends
+- **Four time zone suites** — tests run under Europe/Berlin, America/New_York, America/Los_Angeles, and UTC to verify calculations in UTC+ and UTC− zones. New York and Los Angeles cover spring-forward (March) and fall-back (November). Los Angeles also guards the date-only-string path west of UTC, where a mis-anchored parse would drift the calendar day. Kolkata (UTC+5:30, no clock changes) covers the half-hour offset across all months and month-ends
 - **Structured audit** — every function was audited for bad inputs, missing inputs, and unexpected values. All findings fixed
 - **No runtime dependencies** — the bundle is the entire library
 
@@ -908,6 +909,7 @@ Sett(serverDate.toDate()).formatForBackend()
 npm test           # full suite + coverage
 npm run test:cet   # Europe/Berlin (CET/CEST) clock change suite
 npm run test:ny    # America/New_York (EST/EDT) clock change suite
+npm run test:la    # America/Los_Angeles — date-only west-of-UTC guard
 ```
 
 ---

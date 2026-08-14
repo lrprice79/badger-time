@@ -80,10 +80,10 @@ function isoWeekYear(d: Date): number {
 /**
  * Lightweight immutable-style date wrapper for arithmetic, comparison, and boundary operations.
  *
- * String inputs are treated as UTC. Date-only strings (`"YYYY-MM-DD"`) are parsed as
- * UTC midnight per the ECMAScript spec — no suffix is appended. Datetime strings without a
- * timezone indicator (e.g. `"2026-03-15T10:30:00"`) get `"Z"` appended automatically.
- * Getters use local time methods.
+ * Date-only strings (`"YYYY-MM-DD"`) are anchored to LOCAL midnight, so every
+ * calendar getter and arithmetic operation reports the intended calendar day in any
+ * timezone. Datetime strings without a timezone indicator (e.g. `"2026-03-15T10:30:00"`)
+ * are treated as UTC (`"Z"` is appended). Getters use local time methods.
  *
  * @example
  * ```ts
@@ -99,13 +99,16 @@ export class Badger {
   private currentDate: Date;
 
   /**
-   * @param dateTime - A date string (UTC), `Date` object, or omit for current time.
+   * @param dateTime - A date string, `Date` object, or omit for current time.
    *
-   * String inputs are treated as UTC:
-   * - Date-only strings (`"YYYY-MM-DD"`) are left as-is — the ECMAScript spec already
-   *   parses them as UTC midnight, and appending `"Z"` produces an invalid string in Safari.
+   * String parsing:
+   * - Date-only strings (`"YYYY-MM-DD"`) are anchored to LOCAL midnight. Because every
+   *   calendar getter and arithmetic method works in local time, UTC midnight would read
+   *   as the previous day west of UTC and drift month/range calculations; local midnight
+   *   keeps the calendar day correct in every timezone.
    * - Strings with an explicit timezone indicator (`Z` or `+HH:MM`/`-HH:MM`) are used as-is.
-   * - All other bare datetime strings (e.g. `"2026-03-15T10:30:00"`) get `"Z"` appended.
+   * - All other bare datetime strings (e.g. `"2026-03-15T10:30:00"`) are treated as UTC
+   *   (`"Z"` appended).
    */
   constructor(dateTime?: string | Date) {
     if (dateTime instanceof Date) {
@@ -118,9 +121,17 @@ export class Badger {
       } else {
         const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(dateTime);
         const hasTimezoneIndicator = /(?:Z|[+-]\d{2}:?\d{2})$/.test(dateTime);
-        this.currentDate = new Date(
-          isDateOnly || hasTimezoneIndicator ? dateTime : dateTime + "Z",
-        );
+        if (isDateOnly) {
+          // Anchor date-only strings to LOCAL midnight, not UTC midnight. Every
+          // calendar getter (.day/.month/.dayOfWeek) and add()/range() operate in
+          // local time, so a UTC-midnight instant reads as the *previous* calendar
+          // day west of UTC — which silently drifts month arithmetic and ranges.
+          // Local midnight makes the calendar day correct in every timezone.
+          const [y, m, d] = dateTime.split("-").map(Number);
+          this.currentDate = new Date(y, m - 1, d);
+        } else {
+          this.currentDate = new Date(hasTimezoneIndicator ? dateTime : dateTime + "Z");
+        }
       }
     } else {
       this.currentDate = new Date(Date.now());
@@ -160,10 +171,12 @@ export class Badger {
   /**
    * Creates a `Badger` from a local date string and time string, avoiding UTC conversion.
    *
-   * The standard constructor appends `Z` to bare strings, treating them as UTC and shifting
-   * the local time by the UTC offset. Use this factory when you have an explicit
-   * `"YYYY-MM-DD"` + `"HH:mm"` pair that represents local wall-clock time — for example,
-   * a user-selected pickup date and time.
+   * The standard constructor treats bare *datetime* strings as UTC (`"2026-05-22T00:15"`
+   * gets `Z` appended), shifting the wall-clock time by the UTC offset. Use this factory
+   * when you have an explicit `"YYYY-MM-DD"` + `"HH:mm"` pair that represents local
+   * wall-clock time — for example, a user-selected pickup date and time. (A pure
+   * `"YYYY-MM-DD"` date-only string is already anchored to local midnight by the
+   * constructor; use `fromLocal` when you also need a specific time of day.)
    *
    * @param date - ISO date string `"YYYY-MM-DD"`
    * @param time - Time string `"HH:mm"`
@@ -252,6 +265,32 @@ export class Badger {
   toISOString(): string {
     if (!this.isValid()) throw new RangeError("Badger.toISOString(): date is not valid — call isValid() first");
     return this.currentDate.toISOString();
+  }
+
+  /**
+   * Returns the **local** calendar date as a `"YYYY-MM-DD"` string, built from the
+   * local getters (`.year`/`.month`/`.day`).
+   *
+   * Use this — never `toISOString().slice(0, 10)` — whenever you need the local date
+   * of a `Badger`. `toISOString()` returns the UTC instant, so slicing it yields the
+   * *UTC* calendar day, which is the previous or next day near local midnight (and on
+   * every day for date-only values in a non-UTC zone). This method reads the same local
+   * frame as every other getter and comparison, so it is correct in every timezone.
+   *
+   * @throws {RangeError} if the date is not valid — call `isValid()` first.
+   *
+   * @example
+   * ```ts
+   * Badger("2026-02-01").toLocalISODate()          // "2026-02-01" in every timezone
+   * Badger("2026-02-01").add(1, "day").toLocalISODate() // "2026-02-02" in every timezone
+   * ```
+   */
+  toLocalISODate(): string {
+    if (!this.isValid()) throw new RangeError("Badger.toLocalISODate(): date is not valid — call isValid() first");
+    const y = this.currentDate.getFullYear();
+    const m = this.currentDate.getMonth() + 1;
+    const d = this.currentDate.getDate();
+    return `${y.toString().padStart(4, "0")}-${m.toString().padStart(2, "0")}-${d.toString().padStart(2, "0")}`;
   }
 
   /** Returns the Unix timestamp in seconds (floored). */

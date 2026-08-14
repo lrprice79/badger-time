@@ -26,7 +26,8 @@
     "test": "TZ=UTC vitest run --coverage",
     "test:watch": "TZ=UTC vitest",
     "test:cet": "TZ=Europe/Berlin vitest run --config vitest.cet.config.mts",
-    "test:ny": "TZ=America/New_York vitest run --config vitest.ny.config.mts"
+    "test:ny": "TZ=America/New_York vitest run --config vitest.ny.config.mts",
+    "test:la": "TZ=America/Los_Angeles vitest run --config vitest.la.config.mts"
   },
   "keywords": [
     "date",

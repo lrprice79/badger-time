@@ -184,6 +184,39 @@ describe("toMillisecondTimestamp", () => {
     });
 });
 
+// ─── toLocalISODate ───────────────────────────────────────────────────────────
+
+describe("toLocalISODate", () => {
+    it("returns the local calendar date as YYYY-MM-DD", () => {
+        // TZ=UTC in this suite, so local midnight == UTC midnight
+        expect(new Badger("2026-02-01").toLocalISODate()).toBe("2026-02-01");
+    });
+
+    it("round-trips a date-only string", () => {
+        expect(new Badger("2026-12-25").toLocalISODate()).toBe("2026-12-25");
+    });
+
+    it("reflects local date arithmetic", () => {
+        expect(new Badger("2026-02-01").add(1, "day").toLocalISODate()).toBe("2026-02-02");
+        expect(new Badger("2026-01-31").add(2, "month").toLocalISODate()).toBe("2026-03-31");
+    });
+
+    it("zero-pads month, day, and year", () => {
+        expect(new Badger("2026-01-05").toLocalISODate()).toBe("2026-01-05");
+        const smallYear = new Date(2000, 0, 3);
+        smallYear.setFullYear(7); // genuine year 7 (the Date(yy,…) form would map to 1907)
+        expect(new Badger(smallYear).toLocalISODate()).toBe("0007-01-03");
+    });
+
+    it("takes the date part of a datetime, dropping the time", () => {
+        expect(new Badger("2026-06-15T23:45:00Z").toLocalISODate()).toBe("2026-06-15");
+    });
+
+    it("throws on an invalid date", () => {
+        expect(() => new Badger("not-a-date").toLocalISODate()).toThrow(RangeError);
+    });
+});
+
 // ─── clone / immutability ─────────────────────────────────────────────────────
 
 describe("clone and immutability", () => {
