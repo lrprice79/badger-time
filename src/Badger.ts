@@ -1,4 +1,5 @@
 import { BadgerSettings } from "./BadgerSettings";
+import { weekendDays, type LocaleInput } from "./localeInfo";
 
 /** Strict ISO date-only matcher for holiday keys — rejects national formats and datetimes. */
 const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
@@ -958,11 +959,8 @@ export class Badger {
    * Returns the weekend day numbers (ISO: 1=Mon…7=Sun) for the given locale.
    * Resolution order: explicit `locale` arg → `BadgerSettings.defaultLocale` → `[6, 7]` (Sat, Sun).
    */
-  private getWeekend(locale?: Intl.Locale): number[] {
-    const resolved = locale ?? BadgerSettings.defaultLocale;
-    /* v8 ignore next 2 */
-    if (!resolved) return [6, 7];
-    return (resolved as any).weekInfo?.weekend ?? [6, 7];
+  private getWeekend(locale?: LocaleInput): number[] {
+    return weekendDays(locale);
   }
 
   /**
@@ -1043,7 +1041,7 @@ export class Badger {
    *   evaluation.
    * @throws {RangeError} If any holiday string is not a real ISO `YYYY-MM-DD` date.
    */
-  isBusinessDay(locale?: Intl.Locale, holidays?: Iterable<string>): boolean {
+  isBusinessDay(locale?: LocaleInput, holidays?: Iterable<string>): boolean {
     const holidaySet = Badger.buildHolidaySet(holidays); // validate first, even for invalid dates
     if (!this.isValid()) return false;
     const weekend = this.getWeekend(locale);
@@ -1073,7 +1071,7 @@ export class Badger {
    *   string is invalid, or if the holiday set blocks every reachable day (the
    *   walk is bounded, so a pathological set throws instead of looping forever).
    */
-  addBusinessDays(n: number, locale?: Intl.Locale, holidays?: Iterable<string>): Badger {
+  addBusinessDays(n: number, locale?: LocaleInput, holidays?: Iterable<string>): Badger {
     if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) throw new RangeError(`addBusinessDays: n must be a non-negative integer, got ${n}`);
     const holidaySet = Badger.buildHolidaySet(holidays);
     if (!this.isValid()) return this.clone();
@@ -1111,7 +1109,7 @@ export class Badger {
    *   string is invalid, or if the holiday set blocks every reachable day (the
    *   walk is bounded, so a pathological set throws instead of looping forever).
    */
-  subtractBusinessDays(n: number, locale?: Intl.Locale, holidays?: Iterable<string>): Badger {
+  subtractBusinessDays(n: number, locale?: LocaleInput, holidays?: Iterable<string>): Badger {
     if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) throw new RangeError(`subtractBusinessDays: n must be a non-negative integer, got ${n}`);
     const holidaySet = Badger.buildHolidaySet(holidays);
     if (!this.isValid()) return this.clone();

@@ -15,6 +15,7 @@ src/
 ├── Badger.ts         — date engine (arithmetic, comparison, boundaries, business days, ranges)
 ├── BadgerSett.ts     — formatter (Intl-based display + backend serialisation)
 ├── BadgerSettings.ts — global locale/timezone defaults + subscription
+├── localeInfo.ts     — Hermes-safe locale tag / week info / 12h-clock helpers
 └── index.ts          — barrel + Node-version guard
 ```
 
@@ -179,7 +180,13 @@ Sett()                                           // now, default locale/tz
 Sett(someDate)
 Sett(someDate, new Intl.Locale("sv-SE"))
 Sett(someDate, new Intl.Locale("en-US"), opts)   // custom Intl.DateTimeFormatOptions
+Sett(someDate, "sv-SE")                          // plain string locale (LocaleInput)
 ```
+
+**Hermes-safe:** never call `new Intl.Locale(...)` directly in library code — Hermes (React Native)
+doesn't have it. Locale tags + week info go through `src/localeInfo.ts` (`localeTag`, `firstDayOfWeek`,
+`weekendDays`, `uses12HourClock`), which fall back to en-GB / Monday-first / Sat+Sun. Pinned by
+`tests/hermes.test.ts` (deletes `Intl.Locale`).
 
 ### Display methods
 

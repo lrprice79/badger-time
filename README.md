@@ -523,7 +523,15 @@ Sett(someDate, new Intl.Locale("sv-SE"), {          // override locale + formatt
     month: "2-digit",
     day: "2-digit"
 })
+Sett(someDate, "sv-SE")                             // a plain locale string works too
 ```
+
+**React Native / Hermes:** Hermes has no `Intl.Locale`. badger-time never needs one: the
+default locale is the plain tag `"en-GB"`, and anything that wants week info (`isWeekend`,
+`startOfWeek`, `getDaysOfTheWeek`, the business-day methods) or the 12/24-hour clock
+(`formatTimeOnly`) reads it safely, falling back to **Monday-first, Saturday + Sunday weekend**
+when `Intl.Locale` is missing. On Hermes, pass locales as **strings** (`"sv-SE"`) rather than
+`new Intl.Locale(...)`. Every locale parameter accepts either form (`LocaleInput`).
 
 ### Displaying a date
 

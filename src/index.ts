@@ -9,6 +9,7 @@ if (typeof process !== "undefined" && process.versions?.node) {
 
 import { Badger as BadgerClass } from "./Badger";
 import { BadgerSett as BadgerSettClass } from "./BadgerSett";
+import type { LocaleInput } from "./localeInfo";
 
 export { BadgerSettings } from "./BadgerSettings";
 
@@ -19,6 +20,7 @@ export { BadgerSettings } from "./BadgerSettings";
 // e.g. `const d: Badger = Badger(...)` — with no separate type import.
 export type { Badger as BadgerInstance } from "./Badger";
 export type { BadgerSett as BadgerSettInstance } from "./BadgerSett";
+export type { LocaleInput } from "./localeInfo";
 
 /**
  * Creates a Badger date instance. Shorthand for `new Badger(date)`.
@@ -42,7 +44,7 @@ export type Badger = BadgerClass;
 /** Creates a BadgerSett formatter instance. Shorthand for `new BadgerSett(date, locale, options)`. */
 export const Sett = (
     date?: Date | string,
-    locale?: Intl.Locale,
+    locale?: LocaleInput,
     options?: Intl.DateTimeFormatOptions
 ): BadgerSettClass => new BadgerSettClass(date, locale, options);
 /** The instance type returned by `Sett(...)` (value/type declaration merge). */

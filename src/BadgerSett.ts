@@ -1,5 +1,6 @@
 import { BadgerSettings } from "./BadgerSettings";
 import { Badger } from "./Badger";
+import { firstDayOfWeek, localeTag, uses12HourClock, weekendDays, type LocaleInput } from "./localeInfo";
 
 const defaultDateFormatOptions: Intl.DateTimeFormatOptions = {
     year: "numeric",
@@ -37,14 +38,15 @@ export class BadgerSett extends Intl.DateTimeFormat {
      * @param locale - BCP 47 locale. Defaults to `en-GB`.
      * @param options - `Intl.DateTimeFormatOptions` override.
      */
-    constructor(date?: Date | string, locale?: Intl.Locale, options?: Intl.DateTimeFormatOptions) {
-        const resolvedLocale = locale ?? BadgerSettings.defaultLocale ?? new Intl.Locale("en-GB");
+    constructor(date?: Date | string, locale?: LocaleInput, options?: Intl.DateTimeFormatOptions) {
+        // A plain tag, not `new Intl.Locale(...)` — Hermes has no Intl.Locale.
+        const resolvedLocale = localeTag(locale);
         const resolvedOptions = options ?? (
             BadgerSettings.defaultTimeZone
                 ? { ...defaultDateFormatOptions, timeZone: BadgerSettings.defaultTimeZone }
                 : defaultDateFormatOptions
         );
-        super(resolvedLocale.baseName, resolvedOptions);
+        super(resolvedLocale, resolvedOptions);
         if (typeof date === "string") {
             if (date === "") {
                 this.currentDate = new Date(NaN);
@@ -154,9 +156,7 @@ export class BadgerSett extends Intl.DateTimeFormat {
     formatTimeOnly() {
         this.assertDateValid("formatTimeOnly");
         const locale = this.resolvedOptions().locale;
-        const hourCycles = (new Intl.Locale(locale) as any).hourCycles as string[] | undefined;
-        /* v8 ignore next 1 */
-        const is12h = hourCycles?.[0] === "h11" || hourCycles?.[0] === "h12";
+        const is12h = uses12HourClock(locale);
         return new Intl.DateTimeFormat(locale, {
             hour: "2-digit",
             minute: "2-digit",
@@ -187,19 +187,12 @@ export class BadgerSett extends Intl.DateTimeFormat {
         const locale = this.resolvedOptions().locale;
         const formatter = new Intl.DateTimeFormat(locale, { weekday: format });
 
-        // Determine the locale's first day of week via Intl.Locale weekInfo.
-        // firstDay: 1 = Monday (ISO default), 7 = Sunday (en-US), 6 = Saturday.
-        // Falls back to Monday if weekInfo is unavailable.
-        let firstDayOfWeek = 1;
-        /* v8 ignore next 6 */
-        try {
-            const locObj = new Intl.Locale(locale);
-            const info = (locObj as any).weekInfo ?? (locObj as any).getWeekInfo?.();
-            if (typeof info?.firstDay === "number") firstDayOfWeek = info.firstDay;
-        } catch { /* keep Monday default */ }
+        // The locale's first day of week (1 = Monday ISO default, 7 = Sunday for en-US, …);
+        // Monday when week info is unavailable (e.g. Hermes has no Intl.Locale).
+        const firstDay = firstDayOfWeek(locale);
 
         // Map Intl firstDay (1=Mon, 7=Sun) to JS day index (0=Sun, 1=Mon, …)
-        const jsFirstDay = firstDayOfWeek === 7 ? 0 : firstDayOfWeek;
+        const jsFirstDay = firstDay === 7 ? 0 : firstDay;
 
         // 2024-01-01 is a Monday (JS day 1). Offset from Monday to jsFirstDay.
         const mondayOffset = (jsFirstDay - 1 + 7) % 7;
@@ -227,9 +220,7 @@ export class BadgerSett extends Intl.DateTimeFormat {
      * Falls back to Saturday+Sunday when `weekInfo` is unavailable.
      */
     isWeekend(): boolean {
-        const locObj = new Intl.Locale(this.resolvedOptions().locale);
-        /* v8 ignore next 1 */
-        const weekend: number[] = (locObj as any).weekInfo?.weekend ?? [6, 7];
+        const weekend = weekendDays(this.resolvedOptions().locale);
         // Use local getDay() — consistent with Badger.isWeekend and the .dayOfWeek getter.
         const jsDay = this.currentDate.getDay();
         const isoDay = jsDay === 0 ? 7 : jsDay;
@@ -247,9 +238,7 @@ export class BadgerSett extends Intl.DateTimeFormat {
      */
     startOfWeek(): Date {
         this.assertDateValid("startOfWeek");
-        const locObj = new Intl.Locale(this.resolvedOptions().locale);
-        /* v8 ignore next 1 */
-        const firstDay: number = (locObj as any).weekInfo?.firstDay ?? 1;
+        const firstDay = firstDayOfWeek(this.resolvedOptions().locale);
         // weekInfo firstDay: 1=Mon…7=Sun → JS: Sun=0, else same as ISO
         const jsFirstDay = firstDay === 7 ? 0 : firstDay;
         const jsDay = this.currentDate.getDay();          // local day of week
