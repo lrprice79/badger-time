@@ -40,10 +40,10 @@ describe("Sett() factory", () => {
         expect(Sett()).toBeInstanceOf(BadgerSett);
     });
 
-    it("no arg → en-GB locale, Europe/London timezone", () => {
+    it("no arg → en-GB locale, the device's timezone", () => {
         const opts = Sett().resolvedOptions();
         expect(opts.locale).toBe("en-GB");
-        expect(opts.timeZone).toBe("Europe/London");
+        expect(opts.timeZone).toBe(new Intl.DateTimeFormat().resolvedOptions().timeZone);
     });
 
     it("accepts a Date object", () => {

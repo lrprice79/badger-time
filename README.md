@@ -515,7 +515,7 @@ String inputs follow the same rules as `Badger()` — bare date-time strings are
 Sett()                                              // now, global defaults
 Sett(someDate)                                      // specific date, global defaults
 Sett("2026-03-15T10:30:00")                         // string input → treated as UTC
-Sett("2026-03-15")                                  // date-only → UTC midnight
+Sett("2026-03-15")                                  // date-only → LOCAL midnight
 Sett(someDate, new Intl.Locale("sv-SE"))            // override the locale
 Sett(someDate, new Intl.Locale("sv-SE"), {          // override locale + formatting options
     timeZone: "Europe/Stockholm",
@@ -525,6 +525,14 @@ Sett(someDate, new Intl.Locale("sv-SE"), {          // override locale + formatt
 })
 Sett(someDate, "sv-SE")                             // a plain locale string works too
 ```
+
+**Hermes caveat:** `formatRelative` needs `Intl.RelativeTimeFormat`, and `formatCountdown` /
+`formatDuration` need `Intl.DurationFormat`. Hermes (React Native) doesn't document either, so treat
+those three as **web/Node only**. Everything else is Hermes-safe. `formatRelative` rounds to the
+nearest month (31 Jan → 1 Mar is "last month").
+
+**Time zone default:** a `Sett` with no `timeZone` option uses `BadgerSettings.defaultTimeZone`, else
+the **device's own zone** (it used to fall back to Europe/London).
 
 **React Native / Hermes:** Hermes has no `Intl.Locale`. badger-time never needs one: the
 default locale is the plain tag `"en-GB"`, and anything that wants week info (`isWeekend`,
@@ -924,4 +932,4 @@ npm run test:la    # America/Los_Angeles — date-only west-of-UTC guard
 
 ## License
 
-UNLICENSED — private package.
+[MIT](LICENSE) © 2026 Luke Price (The Purple Brock).

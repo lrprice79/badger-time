@@ -49,8 +49,8 @@ describe("on an engine without Intl.Locale (Hermes)", () => {
     });
 
     it("business-day maths works with a string locale and with none", () => {
-        expect(new Badger("2026-03-13").addBusinessDays(1, "en-GB").toISOString().slice(0, 10)).toBe("2026-03-16");
-        expect(new Badger("2026-03-13").addBusinessDays(1).toISOString().slice(0, 10)).toBe("2026-03-16");
+        expect(new Badger("2026-03-13").addBusinessDays(1, "en-GB").toLocalISODate()).toBe("2026-03-16");
+        expect(new Badger("2026-03-13").addBusinessDays(1).toLocalISODate()).toBe("2026-03-16");
         expect(new Badger("2026-03-14").isBusinessDay("sv-SE")).toBe(false);
     });
 
@@ -113,5 +113,47 @@ describe("week info across engine shapes", () => {
         expect([firstDayOfWeek(viaProp), weekendDays(viaProp)]).toEqual([7, [5, 6]]);
         expect(firstDayOfWeek(viaMethod)).toBe(6);
         expect([firstDayOfWeek(neither), weekendDays(neither)]).toEqual([1, [6, 7]]);
+    });
+});
+
+describe("default time zone follows the device (not London)", () => {
+    afterEach(() => BadgerSettings.reset());
+
+    it("a Sett with no timeZone uses the device's zone", () => {
+        const device = new Intl.DateTimeFormat().resolvedOptions().timeZone;
+        expect(new BadgerSett(new Date()).resolvedOptions().timeZone).toBe(device);
+    });
+
+    it("formats a local date-only Badger as that same calendar date", () => {
+        const d = new Badger("2026-01-01").toDate();
+        expect(new BadgerSett(d, "en-CA").formatDateOnly()).toBe("2026-01-01");
+        expect(new BadgerSett(new Badger("2026-07-15").toDate(), "en-CA").formatDateOnly()).toBe("2026-07-15");
+    });
+
+    it("BadgerSettings.defaultTimeZone still wins when set", () => {
+        BadgerSettings.defaultTimeZone = "Asia/Tokyo";
+        expect(new BadgerSett(new Date()).resolvedOptions().timeZone).toBe("Asia/Tokyo");
+    });
+});
+
+describe("formatRelative counts whole calendar months (day-of-month aware)", () => {
+    const rel = (from: Date, to: Date) => new BadgerSett(from, "en-GB").formatRelative(to);
+
+    it("31 Jan → 1 Mar (29 days) is not '2 months ago'", () => {
+        expect(rel(new Date(2026, 0, 31, 12), new Date(2026, 2, 1, 12))).toBe("last month");
+    });
+
+    it("rounds to the NEAREST month (half a month or more rounds up)", () => {
+        expect(rel(new Date(2026, 0, 15, 12), new Date(2026, 1, 20, 12))).toBe("last month");   // 1 month + 5 days
+        expect(rel(new Date(2026, 0, 15, 12), new Date(2026, 2, 10, 12))).toBe("2 months ago"); // 1 month + 23 days
+        expect(rel(new Date(2026, 0, 15, 12), new Date(2026, 2, 15, 12))).toBe("2 months ago"); // exactly 2
+    });
+
+    it("the future direction mirrors it", () => {
+        expect(rel(new Date(2026, 2, 1, 12), new Date(2026, 0, 31, 12))).toBe("next month");
+    });
+
+    it("31 Dec 2025 → 1 Jan 2027 is last year, not 2 years ago", () => {
+        expect(rel(new Date(2025, 11, 31, 12), new Date(2027, 0, 1, 12))).toBe("last year");
     });
 });

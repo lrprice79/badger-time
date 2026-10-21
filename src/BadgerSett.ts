@@ -9,8 +9,9 @@ const defaultDateFormatOptions: Intl.DateTimeFormatOptions = {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hour12: false,
-    timeZone: "Europe/London"
+    hour12: false
+    // No timeZone: Intl then uses the DEVICE's zone. (It used to default to Europe/London, which
+    // showed dates near midnight a day early for everyone east of the UK.)
 };
 
 type Month = "numeric" | "2-digit" | "long" | "short" | "narrow" | undefined;
@@ -19,7 +20,8 @@ type Weekday = "long" | "short" | "narrow" | undefined;
 /**
  * Locale-aware date formatter built on `Intl.DateTimeFormat`.
  *
- * Defaults to `en-GB` locale and `Europe/London` time zone.
+ * Defaults to `en-GB` locale and the device's own time zone (override with
+ * `BadgerSettings.defaultTimeZone` or an explicit `timeZone` option).
  *
  * @example
  * ```ts
@@ -297,9 +299,21 @@ export class BadgerSett extends Intl.DateTimeFormat {
 
         const earlier = isFuture ? now : this.currentDate;
         const later = isFuture ? this.currentDate : now;
-        const calMonths =
+        // Months to the NEAREST month: whole calendar months (end-of-month clamped, so 31 Jan + 1 month
+        // = 28/29 Feb), plus one more if the leftover is half a month (15 days) or more. So 31 Jan → 1 Mar
+        // is "last month" (not 2), while 28 days across a month boundary still rounds up to a month.
+        const stepMonths =
             (later.getFullYear() - earlier.getFullYear()) * 12 +
             (later.getMonth() - earlier.getMonth());
+        const addMonthsClamped = (d: Date, n: number): Date => {
+            const target = new Date(d.getFullYear(), d.getMonth() + n, 1, d.getHours(), d.getMinutes(), d.getSeconds(), d.getMilliseconds());
+            const lastDay = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+            target.setDate(Math.min(d.getDate(), lastDay));
+            return target;
+        };
+        const wholeMonths = addMonthsClamped(earlier, stepMonths) > later ? stepMonths - 1 : stepMonths;
+        const leftoverDays = Math.floor((later.getTime() - addMonthsClamped(earlier, wholeMonths).getTime()) / 86_400_000);
+        const calMonths = wholeMonths + (leftoverDays >= 15 ? 1 : 0);
         const calYears = Math.floor(calMonths / 12);
 
         let value: number;

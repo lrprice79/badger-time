@@ -56,12 +56,12 @@ Every mutation method returns a **new** instance — the original is never modif
 ```ts
 Badger()                          // current time
 Badger("2026-03-15T10:30:00")    // datetime string → treated as UTC (Z appended)
-Badger("2026-03-15")             // date-only string → UTC midnight (no Z — spec-compliant)
+Badger("2026-03-15")             // date-only string → LOCAL midnight of that date
 Badger(someDate)                 // copy of a Date object
 ```
 
 String parsing rules:
-- **Date-only strings** (`"YYYY-MM-DD"`) are left as-is — the ECMAScript spec parses them as UTC midnight. Appending `Z` would produce `"YYYY-MM-DDZ"`, invalid in Safari.
+- **Date-only strings** (`"YYYY-MM-DD"`) are anchored to **local** midnight of that calendar date (not UTC midnight — that showed the previous day west of UTC). Use `toLocalISODate()` to get the local `YYYY-MM-DD` back.
 - **Strings with a timezone indicator** (`Z` or `±HH:MM`) are used as-is.
 - **All other bare datetime strings** (e.g. `"2026-03-15T10:30:00"`) get `"Z"` appended.
 
@@ -160,6 +160,7 @@ Month and year diff are calendar-based (not ms-based).
 
 ```ts
 dt.toISOString()       // "2026-03-15T10:30:00.000Z"
+dt.toLocalISODate()    // "2026-03-15"  (LOCAL calendar date — use this, not toISOString().slice(0,10))
 dt.toDate()            // copy of underlying Date
 dt.toUnixTimestamp()   // Unix seconds
 dt.clone()
@@ -173,7 +174,7 @@ dt.isLeapYear()
 
 ## Sett — locale-aware formatter
 
-Built on `Intl.DateTimeFormat`. Falls back to `BadgerSettings` defaults, then `en-GB` / `Europe/London`.
+Built on `Intl.DateTimeFormat`. Falls back to `BadgerSettings` defaults, then `en-GB` / the **device's time zone**.
 
 ```ts
 Sett()                                           // now, default locale/tz
@@ -194,14 +195,14 @@ doesn't have it. Locale tags + week info go through `src/localeInfo.ts` (`locale
 bs.formatDate()            // "15/03/2026, 10:30:45"
 bs.formatDateOnly()        // "15/03/2026"
 bs.formatTimeOnly()        // "10:30:45"   (12h/24h chosen by locale)
-bs.formatRelative(relativeTo?)   // "in 2 days" / "3 hours ago"
+bs.formatRelative(relativeTo?)   // "in 2 days" / "3 hours ago" (nearest month; needs Intl.RelativeTimeFormat — not Hermes)
 bs.getDayName(format?)     // "Sunday"   (format: "long" | "short" | "narrow")
 bs.getMonthName(format?)   // "March"
 bs.getDaysOfTheWeek(format?)     // ["Monday", … "Sunday"]
 bs.getMonthsOfTheYear(format?)   // ["January", …]
 ```
 
-### Countdown & duration (Node 24+)
+### Countdown & duration (Node 24+; NOT Hermes/React Native)
 
 ```ts
 bs.formatCountdown(target)   // string, or null when target is in the past
@@ -268,19 +269,12 @@ Sett(Badger(openingHour).toDate(), new Intl.Locale("sv-SE")).formatTimeOnly();
 ## Build & publish
 
 ```bash
-npm run build         # type-check → bundle (rollup) → strip .d.ts comments  (un-obfuscated, RN/Hermes-safe)
-npm run build:publish # build + obfuscate  (opt-in; see Hermes warning below)
-npm publish           # runs `npm run build` via prepublishOnly (un-obfuscated)
+npm run build         # type-check → bundle (rollup) → strip .d.ts comments  (RN/Hermes-safe)
+npm publish           # runs `npm run build` via prepublishOnly
 ```
 
-`npm run build` is **un-obfuscated by default** so the dist runs in React Native /
-Hermes (the obfuscator's `selfDefending` + string-array transforms crash Hermes —
-they produce a silent blank screen). Obfuscation is opt-in via `build:publish`.
-
-⚠️ **Publish blocker:** `build:publish` (and the obfuscation in `scripts/obfuscate.mjs`)
-is NOT yet Hermes-safe. Before shipping an obfuscated build, set `selfDefending: false`,
-disable string-array transforms, and **runtime-test on Hermes** — bundling success does
-not prove it runs. Until then, publishing ships the working un-obfuscated build.
+No obfuscation: the package is MIT open source, and the old obfuscator (`selfDefending` +
+string-array transforms) crashed Hermes. It was removed on 2026-10-21.
 
 Published package contains only `dist/` — JS + `.d.ts` declarations; source `.ts` files
 are excluded via `.npmignore`. `publishConfig.access` is `public` (required for a scoped

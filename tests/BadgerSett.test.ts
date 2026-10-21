@@ -10,11 +10,11 @@ import { Badger } from "../src/Badger";
 // ─── Constructor ──────────────────────────────────────────────────────────────
 
 describe("BadgerSett constructor", () => {
-    it("no arg → current time, en-GB locale, Europe/London timezone", () => {
+    it("no arg → current time, en-GB locale, the device's timezone", () => {
         const bs = new BadgerSett();
         const opts = bs.resolvedOptions();
         expect(opts.locale).toBe("en-GB");
-        expect(opts.timeZone).toBe("Europe/London");
+        expect(opts.timeZone).toBe(new Intl.DateTimeFormat().resolvedOptions().timeZone);
     });
 
     it("accepts a Date object", () => {
@@ -108,6 +108,10 @@ describe("formatForBackend", () => {
 // ─── formatForBackendToStartOfDay ─────────────────────────────────────────────
 
 describe("formatForBackendToStartOfDay", () => {
+    // These cases are about London (BST/GMT) maths — pin the zone explicitly (the default is now the device zone).
+    beforeEach(() => { BadgerSettings.defaultTimeZone = "Europe/London"; });
+    afterEach(() => { BadgerSettings.defaultTimeZone = undefined; });
+
     it("Europe/London UTC (winter) — midnight = 00:00 UTC", () => {
         // 2026-01-15 — London is UTC in winter, so midnight London = 00:00 UTC
         const bs = new BadgerSett("2026-01-15T12:00:00Z");
@@ -149,6 +153,10 @@ describe("formatForBackendToStartOfDay", () => {
 // ─── formatForBackendToEndOfDay ───────────────────────────────────────────────
 
 describe("formatForBackendToEndOfDay", () => {
+    // These cases are about London (BST/GMT) maths — pin the zone explicitly (the default is now the device zone).
+    beforeEach(() => { BadgerSettings.defaultTimeZone = "Europe/London"; });
+    afterEach(() => { BadgerSettings.defaultTimeZone = undefined; });
+
     it("Europe/London UTC (winter) — 23:59:59.999 = 23:59:59.999 UTC", () => {
         const bs = new BadgerSett("2026-01-15T12:00:00Z");
         expect(bs.formatForBackendToEndOfDay()).toBe("2026-01-15T23:59:59.999Z");
@@ -163,6 +171,10 @@ describe("formatForBackendToEndOfDay", () => {
 // ─── DST boundary ─────────────────────────────────────────────────────────────
 
 describe("DST boundary — Europe/London clocks forward last Sunday of March", () => {
+    // These cases are about London (BST/GMT) maths — pin the zone explicitly (the default is now the device zone).
+    beforeEach(() => { BadgerSettings.defaultTimeZone = "Europe/London"; });
+    afterEach(() => { BadgerSettings.defaultTimeZone = undefined; });
+
     it("the day clocks go forward — midnight is still GMT (clocks change at 01:00)", () => {
         // 2026-03-29 — London clocks go forward at 01:00 → 02:00
         // Midnight 29th is still GMT (UTC+0), so start of day = 00:00 UTC
@@ -188,6 +200,10 @@ describe("DST boundary — Europe/London clocks forward last Sunday of March", (
 // ─── DST fall-back ────────────────────────────────────────────────────────────
 
 describe("DST boundary — Europe/London clocks back last Sunday of October", () => {
+    // These cases are about London (BST/GMT) maths — pin the zone explicitly (the default is now the device zone).
+    beforeEach(() => { BadgerSettings.defaultTimeZone = "Europe/London"; });
+    afterEach(() => { BadgerSettings.defaultTimeZone = undefined; });
+
     it("start of day on fall-back day — midnight is still BST (UTC+1)", () => {
         // 2026-10-25 — London clocks go back at 02:00 BST → 01:00 GMT.
         // Midnight on the 25th is still BST (UTC+1), so start of day = 23:00 UTC Oct 24.
@@ -249,6 +265,10 @@ describe("formatDateOnly", () => {
 // ─── formatTimeOnly ───────────────────────────────────────────────────────────
 
 describe("formatTimeOnly", () => {
+    // These cases are about London (BST/GMT) maths — pin the zone explicitly (the default is now the device zone).
+    beforeEach(() => { BadgerSettings.defaultTimeZone = "Europe/London"; });
+    afterEach(() => { BadgerSettings.defaultTimeZone = undefined; });
+
     it("returns HH:MM:SS format (24-hour) for en-GB", () => {
         const bs = new BadgerSett("2026-06-15T14:30:45Z");
         const result = bs.formatTimeOnly();
@@ -852,13 +872,13 @@ describe("BadgerSettings", () => {
         expect(bs.resolvedOptions().timeZone).toBe("Asia/Tokyo");
     });
 
-    it("reset() restores en-GB and Europe/London defaults", () => {
+    it("reset() restores en-GB and the device-timezone defaults", () => {
         BadgerSettings.defaultLocale = new Intl.Locale("ja-JP");
         BadgerSettings.defaultTimeZone = "Asia/Tokyo";
         BadgerSettings.reset();
         const bs = new BadgerSett();
         expect(bs.resolvedOptions().locale).toBe("en-GB");
-        expect(bs.resolvedOptions().timeZone).toBe("Europe/London");
+        expect(bs.resolvedOptions().timeZone).toBe(new Intl.DateTimeFormat().resolvedOptions().timeZone);
     });
 
     it("isWeekend() on BadgerSett uses defaultLocale weekInfo", () => {
