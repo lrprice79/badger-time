@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/lrprice79/badger-time/HEAD/assets/purple-brock-icon.png" width="140" alt="badger-time">
+  <img src="https://raw.githubusercontent.com/lrprice79/badger-time/HEAD/assets/purple-brock-icon.png" width="140" alt="Purple Brock Time">
 </p>
 
-<h1 align="center">badger-time</h1>
+<h1 align="center">Purple Brock Time</h1>
 
 > The date library that actually understands where your users are sett.
 
@@ -14,12 +14,12 @@ A small, fast library for working with dates and times in JavaScript and TypeScr
 
 Working with dates sounds simple — until your app needs to handle users in different countries, different time zones, and different date formats. Most date libraries assume everyone works Monday to Friday, weeks start on Monday, and times are shown in 24-hour format. That's wrong for a large part of the world.
 
-**badger-time** handles this automatically:
+**Purple Brock Time** handles this automatically:
 
-- **Weekends differ by country.** In Saudi Arabia, the weekend is Friday and Saturday. In Israel it is also Friday and Saturday. In most of the world it is Saturday and Sunday. badger-time knows this for every locale (country/language setting) in the world.
-- **Week starts differ by country.** In the US, weeks start on Sunday. In the UK and most of Europe, they start on Monday. badger-time picks the right one automatically.
-- **Time format differs by country.** In the US, people use 12-hour clocks (3:30 PM). In Germany, 24-hour clocks (15:30). badger-time switches automatically based on locale.
-- **Daylight saving time is handled correctly.** Calculating "start of today" or "days between two dates" can give wrong answers when clocks change. badger-time does this correctly.
+- **Weekends differ by country.** In Saudi Arabia, the weekend is Friday and Saturday. In Israel it is also Friday and Saturday. In most of the world it is Saturday and Sunday. Purple Brock Time knows this for every locale (country/language setting) in the world.
+- **Week starts differ by country.** In the US, weeks start on Sunday. In the UK and most of Europe, they start on Monday. Purple Brock Time picks the right one automatically.
+- **Time format differs by country.** In the US, people use 12-hour clocks (3:30 PM). In Germany, 24-hour clocks (15:30). Purple Brock Time switches automatically based on locale.
+- **Daylight saving time is handled correctly.** Calculating "start of today" or "days between two dates" can give wrong answers when clocks change. Purple Brock Time does this correctly.
 
 You set your app's locale once at startup — every date operation and every formatted date in your app picks it up automatically.
 
@@ -41,7 +41,7 @@ yarn add @purple-brock/time
 
 ## How does it compare to other libraries?
 
-| Feature | moment | date-fns | luxon | badger-time |
+| Feature | moment | date-fns | luxon | Purple Brock Time |
 |---|:---:|:---:|:---:|:---:|
 | No extra packages needed | ✗ | ✗ | ✅ | ✅ |
 | Dates are never modified in place | ✗ | ✅ | ✅ | ✅ |
@@ -266,7 +266,7 @@ Throws an error for impossible values (e.g. month 0, hour 25), fractional values
 
 ### Business days
 
-This is where badger-time is unique. It uses built-in browser/Node tools to know which days are weekends for every country in the world — no hard-coded rules, no extra data files.
+This is where Purple Brock Time is unique. It uses built-in browser/Node tools to know which days are weekends for every country in the world — no hard-coded rules, no extra data files.
 
 **Weekend rules are looked up in this order:** explicit locale argument → `BadgerSettings.defaultLocale` → Saturday + Sunday.
 
@@ -299,7 +299,7 @@ No other date library does this natively. Other libraries just don't give a badg
 
 Weekends are derived automatically; **public holidays are not** — no locale or
 region string can tell you that Dec 25 is a UK bank holiday but not a Saudi one,
-and badger-time deliberately ships **no holiday data** (that would be a country-
+and Purple Brock Time deliberately ships **no holiday data** (that would be a country-
 by-country calendar to maintain forever). Instead every business-day method takes
 an optional set of holiday dates that *you* supply — typically resolved from a
 source like [`date-holidays`](https://www.npmjs.com/package/date-holidays), keyed
@@ -534,7 +534,7 @@ nearest month (31 Jan → 1 Mar is "last month").
 **Time zone default:** a `Sett` with no `timeZone` option uses `BadgerSettings.defaultTimeZone`, else
 the **device's own zone** (it used to fall back to Europe/London).
 
-**React Native / Hermes:** Hermes has no `Intl.Locale`. badger-time never needs one: the
+**React Native / Hermes:** Hermes has no `Intl.Locale`. Purple Brock Time never needs one: the
 default locale is the plain tag `"en-GB"`, and anything that wants week info (`isWeekend`,
 `startOfWeek`, `getDaysOfTheWeek`, the business-day methods) or the 12/24-hour clock
 (`formatTimeOnly`) reads it safely, falling back to **Monday-first, Saturday + Sunday weekend**
@@ -898,7 +898,7 @@ await fetch(`/api/orders?from=${from}&to=${to}`);
 ### Comparing dates across time zones
 
 ```ts
-// Server returns UTC timestamps — badger-time handles them correctly
+// Server returns UTC timestamps — Purple Brock Time handles them correctly
 const serverDate = Badger("2026-06-15T22:00:00Z");
 
 // A user in Central European Summer Time (UTC+2) sees this as midnight on Jun 16

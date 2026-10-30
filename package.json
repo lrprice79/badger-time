@@ -1,6 +1,6 @@
 {
   "name": "@purple-brock/time",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Lightweight date engine and formatter — no moment, no date-fns.",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
