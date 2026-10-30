@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/badger-logo.png" width="140" alt="badger-time">
+  <img src="https://raw.githubusercontent.com/lrprice79/badger-time/HEAD/assets/purple-brock-icon.png" width="140" alt="badger-time">
 </p>
 
 <h1 align="center">badger-time</h1>
@@ -915,7 +915,7 @@ Sett(serverDate.toDate()).formatForBackend()
 
 ## Quality
 
-- **791 tests** (8 skipped on Node < 24, where `formatDuration`/`formatCountdown` are unavailable) — every public method, every unit, edge cases including clock change transitions, year boundaries, ISO week rollovers, and locale-specific weekend/week-start logic, plus type-level tests that lock the public type surface
+- **817 tests** (8 skipped on Node < 24, where `formatDuration`/`formatCountdown` are unavailable) — every public method, every unit, edge cases including clock change transitions, year boundaries, ISO week rollovers, and locale-specific weekend/week-start logic, plus type-level tests that lock the public type surface
 - **100% coverage** — statements, branches, functions, and lines
 - **Four time zone suites** — tests run under Europe/Berlin, America/New_York, America/Los_Angeles, and UTC to verify calculations in UTC+ and UTC− zones. New York and Los Angeles cover spring-forward (March) and fall-back (November). Los Angeles also guards the date-only-string path west of UTC, where a mis-anchored parse would drift the calendar day. Kolkata (UTC+5:30, no clock changes) covers the half-hour offset across all months and month-ends
 - **Structured audit** — every function was audited for bad inputs, missing inputs, and unexpected values. All findings fixed
